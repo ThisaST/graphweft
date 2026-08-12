@@ -78,7 +78,7 @@ Type the `/` and VS Code shows them as chips. Extra text after the command is ig
 
 | Command | Description |
 | --- | --- |
-| **CodeGraph: Build Local Index** | (Re)scan the workspace and rebuild the graph. Runs automatically on first chat use and after file saves. |
+| **CodeGraph: Build Local Index** | (Re)scan the workspace and rebuild the graph. Runs automatically on first chat use; after that the index stays fresh incrementally (file watcher + agent write-through), so manual rebuilds are rarely needed. |
 | **CodeGraph: Open Interactive Graph** | Cytoscape graph view — search, filter, switch layouts, click a node to open it / ask about it / show its impact set. |
 | **CodeGraph: Generate Graph Report** | Open the graph report as a Markdown document. |
 | **CodeGraph: Token Savings Analysis** | Open the full token-savings report as a Markdown document. |
@@ -95,7 +95,7 @@ A tree with six sections:
 - **Token Savings** — saved tokens + %, sent vs. baseline, avg per call, and "Open full analysis…".
 - **Actions** — one-click buttons for graph, report, savings, rebuild, privacy, wipe.
 - **God Nodes** — top hub files; click to open.
-- **Communities** — auto-detected clusters (label propagation); expand to see members.
+- **Communities** — auto-detected clusters (Louvain modularity); expand to see members.
 - **Suggested Questions** — click to drop a ready-made question into `@codegraph`.
 - **Recent Model Calls** — last 8 audited calls; click to open the Privacy Center.
 
@@ -166,7 +166,34 @@ When the borderline-query tiebreak spends a cheap model call (step 2 above), Cod
 ## What gets indexed
 
 - **TypeScript / JavaScript** (`.ts .tsx .js .jsx`) — symbols + imports via the TS compiler API.
-- **Many more languages** — symbols + imports via tuned per-language extractors: Python, Go, Rust, Java, Kotlin, C#, C, C++, Swift, Scala, Clojure, Lua, Ruby, PHP, Terraform/HCL, YAML, shell, PowerShell, Markdown, and more.
+- **Python, Go, Java, C#, Rust, Ruby, PHP, C++, Bash** — real AST parsing via tree-sitter WASM grammars (nested symbols, line ranges, export detection), with regex fallback.
+- **Many more languages** — symbols + imports via tuned per-language extractors: Kotlin, C, Swift, Scala, Clojure, Lua, Terraform/HCL, YAML, shell, PowerShell, Markdown, and more.
 - Excluded: `node_modules`, `dist`, `build`, `coverage`, `.git`, `__pycache__`, `.venv`, `venv`.
 
-The index auto-refreshes ~0.75s after you save a supported file.
+The index stays fresh in **real time**: a workspace-wide watcher (debounced ~300 ms) catches every
+file event — including writes by AI agents that never trigger a save — the chat agent's own file
+tools re-index what they touched immediately, and every chat turn / graph command flushes pending
+changes before reading. Unchanged content is skipped via content hashing.
+
+---
+
+## MCP server (headless)
+
+Run the graph engine as an MCP stdio server for any MCP-capable agent (Copilot agent mode, Claude, Cursor):
+
+```bash
+node out/mcp/server.js /path/to/workspace
+```
+
+| Tool | What it returns |
+| --- | --- |
+| `codegraph_context` | Ranked files/symbols/dependency flow for a task query. |
+| `codegraph_impact` | Blast radius — files transitively importing a file. |
+| `codegraph_path` | Shortest dependency path between two files. |
+| `codegraph_hotspots` | Most-connected files (god nodes). |
+| `codegraph_symbol_refs` | Who imports a given symbol, or the most-imported symbols overall. |
+| `codegraph_communities` | Louvain clusters. |
+| `codegraph_stats` | Index size + freshness info. |
+
+The server watches the workspace via `fs.watch` and applies changed files incrementally before every
+tool call, so answers always reflect the current code.

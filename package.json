@@ -2,7 +2,7 @@
   "name": "codemap-graph",
   "displayName": "Codemap — Local Code Graph",
   "description": "Local-first code graph for chat: a privacy-audited @codegraph chat participant, interactive graph viewer, multi-language indexing, and slash commands for path/impact/report. Works with GitHub Copilot Chat.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "ThisaraPramu",
   "icon": "media/icon.png",
   "license": "MIT",

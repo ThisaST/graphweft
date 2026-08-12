@@ -4,6 +4,41 @@ All notable changes to **Codemap — Local Code Graph** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-08-12
+
+### Added
+- **Real-time index freshness for AI-agent edits.** A workspace-wide filesystem watcher
+  (`**/*`, 300 ms debounce) now catches *all* file events — including writes made through
+  `vscode.workspace.fs` by AI agents, which never fire `onDidSaveTextDocument` and previously
+  left the graph stale. The agent's own write/edit tools re-index touched files immediately
+  (`reindexUris`), and every chat turn / graph command flushes pending changes first
+  (`ensureFresh`/`flushPending`). Content hashing (SHA-256) skips no-op writes; all index
+  mutations are serialized and fire `onDidChangeIndex`.
+- **Live graph view + sidebar updates.** The Cytoscape webview patches elements in place on
+  index changes (preserving your layout/positions) instead of requiring a reopen; the sidebar
+  tree refreshes automatically.
+- **Louvain community detection** (graphology, seeded and deterministic) replaces label
+  propagation, with a fallback when graphology is unavailable.
+- **Personalized PageRank ranking signal.** Retrieval seeds PPR with the query's matched files
+  (Aider-style repo-map ranking) and applies it as a bounded nudge that can't override direct
+  intent matches.
+- **Reciprocal Rank Fusion.** Keyword, semantic, and centrality rankings are fused with the
+  standard RRF k=60 formula before boosting.
+- **Symbol-level reference graph.** Named imports are resolved against exported symbols, giving
+  symbol-granular edges. New "Hot Symbols" table in the graph report.
+- **Tree-sitter AST indexing** for Python, Go, Java, C#, Rust, Ruby, PHP, C++, and Bash via
+  `web-tree-sitter` + VS Code's prebuilt WASM grammars: real line ranges, nested `parentName`,
+  Go/Rust export detection. Falls back to the regex extractors when a grammar can't load.
+- **MCP server.** Zero-dependency JSON-RPC 2.0 stdio server (`out/mcp/server.js <root>`) exposing
+  `codegraph_context`, `codegraph_impact`, `codegraph_path`, `codegraph_hotspots`,
+  `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats` to any MCP client, with
+  `fs.watch`-based incremental freshness per call.
+
+### Changed
+- **SQLite persistence is now debounced (500 ms) and incremental.** `upsert` patches only changed
+  files; sql.js full-DB exports are coalesced; `dispose()` flushes on deactivation. Schema v3
+  adds `content_hash`.
+
 ## [0.6.0] — 2026-08-12
 
 ### Added

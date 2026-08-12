@@ -20,24 +20,44 @@ Each stage uses specific, inspectable algorithms — there is no opaque model de
 | Algorithm | File | What it does |
 |---|---|---|
 | TypeScript compiler AST walk | `src/indexer/typescriptAstIndexer.ts` | `ts.createSourceFile` + recursive `visit` extracts classes, functions, methods, React/NestJS constructs, imports, and decorators precisely for `.ts/.tsx/.js/.jsx`. |
-| Regex symbol extraction | `src/indexer/genericIndexer.ts` | Per-extension pattern tables (`patternsByExtension`) extract classes/functions/etc. for Python, Go, Rust, Java, C#, PHP, Kotlin, and more. |
+| Tree-sitter AST extraction | `src/indexer/treeSitterIndexer.ts` | **web-tree-sitter** with VS Code's prebuilt WASM grammars (`@vscode/tree-sitter-wasm`) parses Python, Go, Java, C#, Rust, Ruby, PHP, C++, and Bash into real syntax trees: full symbol line ranges, `parentName` nesting, Go uppercase-export and Rust `pub` visibility detection. Fail-safe — if the runtime or a grammar can't load, extraction transparently falls back to regex. |
+| Regex symbol extraction (fallback) | `src/indexer/genericIndexer.ts` | Per-extension pattern tables (`patternsByExtension`) extract classes/functions/etc. for languages without a loaded grammar (Kotlin, Swift, Terraform, YAML, …). |
 | Namespace / package extraction | `src/indexer/moduleDeclarations.ts` | Captures `namespace` (C#/VB), `package` (Java/Kotlin/Scala), PHP `namespace` — normalized to dot form. |
 | Import extraction | `src/indexer/multiLangImports.ts` | Regex capture of `import`/`using`/`require`/`#include`/`use` per language. |
 | Artifact filtering | `src/utils/fileFilters.ts` | Excludes build/dependency dirs (`node_modules`, `obj`, `bin`, `_framework`, `target`, `.venv`, …) and generated files (`*.g.cs`, `*.min.js`, `dotnet.*.js`, lockfiles). |
+| Content-hash dirty detection | `src/indexer/workspaceIndexer.ts` | SHA-256 of source text stored per file (`contentHash`); incremental reindex skips files whose bytes did not actually change (touch/format no-ops). |
+
+#### Incremental freshness (how the graph stays current)
+
+The index is **never stale by design** — three paths keep it current without full rebuilds:
+
+1. **File watcher** (`src/indexer/fileWatcher.ts`) — a `**/*` filesystem watcher catches *all* writes,
+   including those made by AI agents through `vscode.workspace.fs` (which never fire
+   `onDidSaveTextDocument`). Events are debounced (300 ms) and queued.
+2. **Agent write-through** (`reindexUris`) — the chat agent's own write/edit tools re-index the exact
+   files they touched *immediately*, so the very next tool call in the same agent loop sees fresh graph data.
+3. **Read-time flush** (`ensureFresh`/`flushPending`) — every chat turn and graph tool call first applies
+   any queued changes, so retrieval always runs against current structure.
+
+All mutations are hash-checked (no-op writes cost nothing), serialized through a mutation chain, and fire
+`onDidChangeIndex` so the sidebar and the graph webview patch themselves live (Cytoscape elements are
+updated in place, preserving node positions).
 
 ### 2. Graph construction (the edges)
 
 | Algorithm | File / function | Details |
 |---|---|---|
-| Multi-strategy import resolution | `src/graph/graphAlgorithms.ts` → `resolveImports` | For each import, tries in order: **(1)** relative-path candidates (`./x` + ~25 extensions + index files), **(2)** namespace/package match against declaring files, **(3)** path-suffix match (`net/socket.h`, dotted module paths), **(4)** unique base-name fallback. Ambiguous names are intentionally left unlinked. |
+| Multi-strategy import resolution | `src/graph/graphAlgorithms.ts` → `resolveImports` / `resolveSpecifier` | For each import, tries in order: **(1)** relative-path candidates (`./x` + ~25 extensions + index files), **(2)** namespace/package match against declaring files, **(3)** path-suffix match (`net/socket.h`, dotted module paths), **(4)** unique base-name fallback. Ambiguous names are intentionally left unlinked. |
 | Lookup-index build | `buildFileIndex` | Builds `byPath`, `byModule` (namespace → files), and `byBaseName` maps so resolution is O(1) per candidate. |
+| Symbol-level reference edges | `buildSymbolReferences` / `symbolUsageCounts` | Resolves **named imports** against the target file's *exported symbols*, producing symbol-granular edges (`controller.ts → service.ts#UserService`). Powers the report's "Hot Symbols" table and the MCP `codegraph_symbol_refs` tool. Wildcard/default imports stay file-level. |
 
 ### 3. Graph analytics
 
 | Algorithm | Function | Classic name / complexity |
 |---|---|---|
 | Degree centrality | `computeDegrees` | in/out/total degree per node → "god nodes" (hubs). O(V+E). |
-| Community detection | `communityLabels` | **Label propagation** — each node adopts the majority label among neighbors, 8 iterations, then labels are compacted. Near-linear; deterministic tie-break by lowest label. |
+| Community detection | `communityLabels` | **Louvain modularity optimization** (via `graphology-communities-louvain`), seeded RNG for deterministic partitions; falls back to label propagation if graphology is unavailable; edgeless graphs get singleton communities. Near-linear in practice. |
+| Personalized PageRank | `personalizedPageRank` | Power iteration with **teleport biased to seed nodes** (the query's matched files) — the same idea Aider uses for repo-map ranking. Damping 0.85, importer edges weighted 0.5, dangling mass redistributed to seeds. Falls back to uniform teleport (classic PageRank) with no seeds. |
 | Shortest path | `shortestPath` | **Breadth-first search** over the undirected view of the adjacency. O(V+E). |
 | Impact set | `impactSet` | **Reverse BFS** (depth-bounded) over `reverseAdjacency` — "everything that transitively depends on this file" = blast radius. |
 
@@ -65,6 +85,13 @@ plus inherits ¼ of its file's score (capped at 8), with decorator/tag/import bo
 | File imports a file that already matched | +7 |
 | File is imported by a file that already matched | +7 |
 | Test file when the task is test-related | +45 |
+
+**Rank fusion** — `fuseGraphSignals` (`src/graph/graphRetriever.ts`) + `reciprocalRankFusion`
+(`src/graph/graphRanker.ts`): keyword ranking, semantic-similarity ranking, and personalized-PageRank
+centrality are fused with **Reciprocal Rank Fusion** (`score = Σ 1/(60 + rank)` — the standard k=60
+formulation used by hybrid search engines). The fused signal is applied as a *bounded nudge*
+(`centralityBoostScale = 8`) so structural importance refines but never overrides direct intent
+matches (e.g. the +45 test-task boost).
 
 **Contextual boosts** — `src/graph/graphRanker.ts` → `applyContextualFileBoosts`:
 
@@ -99,6 +126,14 @@ sees collaborators), and `mergeRankedFiles` sums scores for files matched by mul
 | Complexity scoring | `src/context/complexityScorer.ts` | Weighted heuristic → 0–100 → `light` / `standard` / `heavy` tier (drives model suggestions). |
 | Model recommendation | `src/chat/modelRecommender.ts` + `modelRegistry.ts` | Multi-axis fit scoring (capability, cost, speed, reasoning, context window) vs a curated registry; surfaces several role-labelled options. |
 | Tolerant edit matching | `src/chat/textReplace.ts` | 3-tier match: exact → line-ending-normalized → per-line whitespace-flexible, preserving the file's original EOL. |
+
+### 8. Persistence & headless access
+
+| Component | File | Details |
+|---|---|---|
+| SQLite store (schema v3) | `src/graph/sqliteGraphStore.ts` | sql.js (WASM SQLite) with `files`/`symbols`/`imports` tables + `content_hash`. `upsert` patches only changed files; edges recompute globally from the merged in-memory set (resolution is global; no re-parsing). Writes are **debounced 500 ms** (sql.js exports the whole DB per persist); `dispose()` flushes on deactivation. |
+| Headless engine | `src/node/codegraphEngine.ts` + `src/node/nodeScanner.ts` | The same indexers/retriever/algorithms without VS Code — drives the CLI and the MCP server. |
+| MCP server | `src/mcp/server.ts` | Zero-dependency **JSON-RPC 2.0 over stdio** (newline-delimited) exposing `codegraph_context`, `codegraph_impact`, `codegraph_path`, `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats` to any MCP client (Copilot agent mode, Claude, Cursor…). Freshness via recursive `fs.watch` + dirty-set incremental reindex on each tool call. |
 
 ---
 
