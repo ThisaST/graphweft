@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { buildFileGraph, communityLabels, personalizedPageRank } from '../graph/graphAlgorithms';
+import { reciprocalRankFusion } from '../graph/graphRanker';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
 import type { WorkspaceSourceFile } from '../indexer/workspaceScanner';
 
@@ -92,6 +93,21 @@ function runTests(): void {
 
   // Empty graph is safe.
   assert.strictEqual(personalizedPageRank(buildFileGraph([]), new Map()).size, 0, 'empty graph returns empty ranks');
+
+  // --- Reciprocal Rank Fusion ----------------------------------------------------------
+  const fused = reciprocalRankFusion([
+    ['a.ts', 'b.ts', 'c.ts'],
+    ['b.ts', 'a.ts'],
+    ['b.ts', 'd.ts'],
+  ]);
+  // b.ts: 1/62 + 1/61 + 1/61 — appears high in all three lists, must win.
+  const order = Array.from(fused.entries()).sort((x, y) => y[1] - x[1]).map(([id]) => id);
+  assert.strictEqual(order[0], 'b.ts', 'item ranked high across lists wins fusion');
+  assert.strictEqual(order[1], 'a.ts', 'consistent runner-up is second');
+  assert.ok(fused.has('d.ts'), 'items from any single list are retained');
+  const expectedB = 1 / 62 + 1 / 61 + 1 / 61;
+  assert.ok(Math.abs((fused.get('b.ts') ?? 0) - expectedB) < 1e-12, 'k=60 formula 1/(k+rank) holds');
+  assert.strictEqual(reciprocalRankFusion([]).size, 0, 'no rankings yields empty fusion');
 
   console.log('graphAlgorithms.test.ts passed');
 }

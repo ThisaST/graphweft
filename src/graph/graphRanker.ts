@@ -77,3 +77,19 @@ export function createHintMatches(files: CodeGraphFile[], hints: GraphRetrievalH
 function samePath(left: string, right: string): boolean {
   return left === right;
 }
+
+/**
+ * Reciprocal Rank Fusion (Cormack et al.): fuse multiple rankings of the same item
+ * space without needing comparable score scales. Each list contributes
+ * `1 / (k + rank)` for every item it contains (rank is 1-based). The standard
+ * k = 60 dampens the head so no single ranker dominates.
+ */
+export function reciprocalRankFusion(rankings: ReadonlyArray<ReadonlyArray<string>>, k = 60): Map<string, number> {
+  const fused = new Map<string, number>();
+  for (const ranking of rankings) {
+    ranking.forEach((item, index) => {
+      fused.set(item, (fused.get(item) ?? 0) + 1 / (k + index + 1));
+    });
+  }
+  return fused;
+}

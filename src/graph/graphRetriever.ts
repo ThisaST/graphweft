@@ -6,7 +6,7 @@ import {
   RankedSymbolResult,
   RetrievalResult,
 } from './graphTypes';
-import { applyContextualFileBoosts, createHintMatches, GraphRetrievalHints } from './graphRanker';
+import { applyContextualFileBoosts, createHintMatches, GraphRetrievalHints, reciprocalRankFusion } from './graphRanker';
 import { buildFileGraph, personalizedPageRank } from './graphAlgorithms';
 import { GraphStore } from './graphStore';
 
@@ -53,16 +53,56 @@ function rankFiles(files: CodeGraphFile[], query: QueryModel, importGraph: Impor
   const hintMatches = createHintMatches(files, hints);
   const mergedResults = mergeRankedFiles([...baseResults, ...hintMatches]);
   const matchedPaths = new Set(mergedResults.filter((result) => result.score > 0).map((result) => result.file.path));
-  const centrality = taskCentrality(files, mergedResults, hints);
+  const fusedSignal = fuseGraphSignals(files, mergedResults, hints);
 
   return applyContextualFileBoosts(
     mergedResults
       .map((result) => applyFileBoosts(result, matchedPaths, query, importGraph))
-      .map((result) => applyCentralityBoost(result, centrality))
+      .map((result) => applyCentralityBoost(result, fusedSignal))
       .filter((result) => result.score > 0),
     hints,
   )
     .sort(sortRankedFiles);
+}
+
+/**
+ * Fuse the three scale-incompatible graph signals — keyword match ranking, semantic
+ * similarity ranking, and personalized-PageRank centrality — with Reciprocal Rank
+ * Fusion (k=60). RRF works on ranks, not raw scores, so a 0..1 cosine similarity, an
+ * unbounded keyword score and a probability-mass centrality can be combined without
+ * hand-tuned scale factors. The fused value is normalized to [0, 1].
+ */
+function fuseGraphSignals(
+  files: CodeGraphFile[],
+  mergedResults: RankedFileResult[],
+  hints: GraphRetrievalHints,
+): Map<string, number> {
+  const keywordRanking = mergedResults
+    .filter((result) => result.score > 0)
+    .sort((a, b) => b.score - a.score || a.file.path.localeCompare(b.file.path))
+    .map((result) => result.file.path);
+
+  const semanticRanking = (hints.semanticMatches ?? [])
+    .slice()
+    .sort((a, b) => b.similarity - a.similarity || a.path.localeCompare(b.path))
+    .map((match) => match.path);
+
+  const centrality = taskCentrality(files, mergedResults, hints);
+  const centralityRanking = Array.from(centrality.entries())
+    .filter(([, value]) => value >= 0.05)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([node]) => node);
+
+  const rankings = [keywordRanking, semanticRanking, centralityRanking].filter((r) => r.length > 0);
+  if (rankings.length === 0) return new Map();
+
+  const fused = reciprocalRankFusion(rankings);
+  let max = 0;
+  for (const value of fused.values()) max = Math.max(max, value);
+  if (max === 0) return new Map();
+  const normalized = new Map<string, number>();
+  for (const [node, value] of fused) normalized.set(node, value / max);
+  return normalized;
 }
 
 /**
@@ -95,20 +135,20 @@ function taskCentrality(
 }
 
 /**
- * Centrality is a *nudge*, not a primary signal: it must never override explicit
- * intent boosts (e.g. the +45 test-task boost), only break near-ties in favor of
- * files that are structurally central to the task's neighborhood.
+ * The fused graph signal is a *nudge*, not a primary signal: it must never override
+ * explicit intent boosts (e.g. the +45 test-task boost), only break near-ties in
+ * favor of files the fused rankers agree are relevant.
  */
 const centralityBoostScale = 8;
 
-function applyCentralityBoost(result: RankedFileResult, centrality: Map<string, number>): RankedFileResult {
-  const value = centrality.get(result.file.path) ?? 0;
-  // Only meaningful centrality gets a boost; the long tail of near-zero scores is noise.
+function applyCentralityBoost(result: RankedFileResult, fusedSignal: Map<string, number>): RankedFileResult {
+  const value = fusedSignal.get(result.file.path) ?? 0;
+  // Only meaningful agreement gets a boost; the long tail of near-zero scores is noise.
   if (result.score <= 0 || value < 0.05) return result;
   return {
     ...result,
     score: result.score + Math.round(value * centralityBoostScale),
-    reasons: [...result.reasons, `graph centrality ${(value * 100).toFixed(0)}%`],
+    reasons: [...result.reasons, `graph signal fusion ${(value * 100).toFixed(0)}%`],
   };
 }
 
