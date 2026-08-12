@@ -167,6 +167,8 @@ async function runTests(): Promise<void> {
   assert.strictEqual(secondStore.getFile('src/audit.service.ts'), undefined, 'removed file should not be returned');
 
   // Persistence: a fresh store must see the incremental changes, and edges must survive.
+  // Incremental persists are debounced, so flush via dispose() first (the deactivate path).
+  await secondStore.dispose();
   const thirdStore = new SqliteGraphStore(storageUri as unknown as import('vscode').Uri);
   await thirdStore.initialize();
   assert.strictEqual(thirdStore.getFiles().length, 2, 'incremental changes should be persisted');

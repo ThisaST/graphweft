@@ -81,6 +81,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Live-update UI surfaces whenever the index changes (saves, agent writes, git ops).
   context.subscriptions.push(
     { dispose: () => indexer.dispose() },
+    { dispose: () => void graphStore.dispose() },
     indexer.onDidChangeIndex(() => {
       treeProvider.refresh();
       graphView.refresh();
@@ -89,5 +90,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {
-  // The SQLite-backed graph is flushed on writes and reused on the next activation.
+  // Store disposal (registered in context.subscriptions) flushes any debounced persist.
 }

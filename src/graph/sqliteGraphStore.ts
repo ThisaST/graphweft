@@ -44,9 +44,21 @@ export class SqliteGraphStore implements GraphStore {
   private database?: Database;
   private workspace?: IndexedWorkspace;
   private readonly databaseUri: vscode.Uri;
+  private persistTimer?: ReturnType<typeof setTimeout>;
+  private persistChain: Promise<void> = Promise.resolve();
 
   public constructor(private readonly globalStorageUri: vscode.Uri) {
     this.databaseUri = vscode.Uri.joinPath(globalStorageUri, databaseFileName);
+  }
+
+  /** Flush any pending debounced persist (call on extension deactivate). */
+  public async dispose(): Promise<void> {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = undefined;
+      this.schedulePersistNow();
+    }
+    await this.persistChain;
   }
 
   public async initialize(): Promise<void> {
@@ -130,7 +142,7 @@ export class SqliteGraphStore implements GraphStore {
       files: this.mergeWorkspaceFiles(files, removedPaths),
       indexedAt: new Date(),
     };
-    await this.persist();
+    this.schedulePersist();
   }
 
   /** In-memory content hashes by path, for the incremental reindexer's dirty check. */
@@ -374,6 +386,27 @@ export class SqliteGraphStore implements GraphStore {
   private async persist(): Promise<void> {
     const database = this.getDatabase();
     await vscode.workspace.fs.writeFile(this.databaseUri, database.export());
+  }
+
+  /**
+   * sql.js has no WAL — persisting exports the WHOLE database file. Bursts of
+   * incremental upserts (agent write loops, watcher flushes) would rewrite the full
+   * file on every change, so incremental mutations debounce the export. Reads are
+   * unaffected: they hit the in-memory database and see changes immediately.
+   */
+  private schedulePersist(delayMs = 500): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+    }
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = undefined;
+      this.schedulePersistNow();
+    }, delayMs);
+  }
+
+  /** Chain persists so overlapping exports can't interleave their file writes. */
+  private schedulePersistNow(): void {
+    this.persistChain = this.persistChain.then(() => this.persist()).catch(() => undefined);
   }
 
   private getDatabase(): Database {
