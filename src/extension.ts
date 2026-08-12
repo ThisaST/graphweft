@@ -10,7 +10,7 @@ import { registerShowReportCommand } from './commands/showReportCommand';
 import { registerShowSavingsCommand } from './commands/showSavingsCommand';
 import { registerWipeIndexCommand } from './commands/wipeIndexCommand';
 import { SqliteGraphStore } from './graph/sqliteGraphStore';
-import { registerFileSaveWatcher } from './indexer/fileWatcher';
+import { registerFileSystemWatcher } from './indexer/fileWatcher';
 import { WorkspaceIndexer } from './indexer/workspaceIndexer';
 import { AuditLog } from './privacy/auditLog';
 import { PrivacyCenterView } from './privacy/privacyCenterView';
@@ -54,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     { dispose: () => toolAudit.dispose() },
     { dispose: () => modelPrefs.dispose() },
     { dispose: () => privacyCenter.dispose() },
-    ...registerCodeGraphTools({ store: graphStore, privacy, toolAudit }),
+    ...registerCodeGraphTools({ store: graphStore, privacy, toolAudit, indexer }),
     registerCodeGraphParticipant({
       store: graphStore,
       indexer,
@@ -73,14 +73,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerWipeIndexCommand(graphStore, audit),
     registerRevealFileCommand(),
     registerAskSuggestedQuestionCommand(),
-    registerFileSaveWatcher(indexer),
+    registerFileSystemWatcher(indexer),
     registerPrivacyStatusBar(privacy, audit),
     vscode.commands.registerCommand('codegraph.refreshSidebar', () => treeProvider.refresh()),
   );
 
-  // Refresh sidebar after index rebuilds.
+  // Live-update UI surfaces whenever the index changes (saves, agent writes, git ops).
   context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument(() => setTimeout(() => treeProvider.refresh(), 1500)),
+    { dispose: () => indexer.dispose() },
+    indexer.onDidChangeIndex(() => {
+      treeProvider.refresh();
+      graphView.refresh();
+    }),
   );
 }
 

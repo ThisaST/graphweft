@@ -3,6 +3,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { GraphStore } from '../graph/graphStore';
 import { buildFileGraph, computeDegrees, impactSet, shortestPath } from '../graph/graphAlgorithms';
+import { WorkspaceIndexer } from '../indexer/workspaceIndexer';
 import { PrivacyManager } from '../privacy/privacyManager';
 import { ToolAuditLog } from '../privacy/toolAuditLog';
 import { applyReplace } from './textReplace';
@@ -11,6 +12,12 @@ export interface ToolDeps {
   store: GraphStore;
   privacy: PrivacyManager;
   toolAudit: ToolAuditLog;
+  /**
+   * When present, mutating tools re-index the files they touched immediately after a
+   * successful write, so graph tools invoked later in the same agent loop see fresh
+   * data instead of waiting for file-watcher latency.
+   */
+  indexer?: WorkspaceIndexer;
 }
 
 /**
@@ -412,6 +419,8 @@ class WriteFileTool implements vscode.LanguageModelTool<WriteFileInput> {
         mutating: true,
         outcome: 'ran',
       });
+      // Keep the graph in sync with the agent's own edit before the next tool round.
+      await this.deps.indexer?.reindexUris([uri]).catch(() => undefined);
       return textResult(`Wrote ${Buffer.byteLength(options.input.content ?? '', 'utf8')} bytes to ${rel}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -469,6 +478,8 @@ class ReplaceInFileTool implements vscode.LanguageModelTool<ReplaceInFileInput> 
       }
       await vscode.workspace.fs.writeFile(uri, Buffer.from(result.updated, 'utf8'));
       await this.deps.toolAudit.append({ tool: 'codegraph_replaceInFile', summary: rel, mutating: true, outcome: 'ran' });
+      // Keep the graph in sync with the agent's own edit before the next tool round.
+      await this.deps.indexer?.reindexUris([uri]).catch(() => undefined);
       const how = result.strategy === 'exact' ? '' : ` (matched via ${result.strategy})`;
       return textResult(`Replaced ${result.count} occurrence(s) in ${rel}${how}.`);
     } catch (error) {
@@ -541,6 +552,7 @@ class ImpactTool implements vscode.LanguageModelTool<ImpactInput> {
   public async invoke(
     options: vscode.LanguageModelToolInvocationOptions<ImpactInput>,
   ): Promise<vscode.LanguageModelToolResult> {
+    await this.deps.indexer?.flushPending().catch(() => undefined);
     const files = this.deps.store.getFiles();
     const seed = matchPath(options.input.file, files.map((f) => f.path));
     if (!seed) {
@@ -564,6 +576,7 @@ class DependencyPathTool implements vscode.LanguageModelTool<DependencyPathInput
   public async invoke(
     options: vscode.LanguageModelToolInvocationOptions<DependencyPathInput>,
   ): Promise<vscode.LanguageModelToolResult> {
+    await this.deps.indexer?.flushPending().catch(() => undefined);
     const files = this.deps.store.getFiles();
     const paths = files.map((f) => f.path);
     const from = matchPath(options.input.from, paths);
@@ -589,6 +602,7 @@ class GodNodesTool implements vscode.LanguageModelTool<GodNodesInput> {
   public async invoke(
     options: vscode.LanguageModelToolInvocationOptions<GodNodesInput>,
   ): Promise<vscode.LanguageModelToolResult> {
+    await this.deps.indexer?.flushPending().catch(() => undefined);
     const files = this.deps.store.getFiles();
     const limit = Math.min(Math.max(options.input.limit ?? 15, 1), 100);
     const degrees = computeDegrees(buildFileGraph(files)).slice(0, limit);

@@ -11,6 +11,18 @@ export class InMemoryGraphStore implements GraphStore {
     };
   }
 
+  public async upsert(files: CodeGraphFile[], removedPaths: string[] = []): Promise<void> {
+    const removed = new Set(removedPaths);
+    const updated = new Map(files.map((file) => [file.path, file]));
+    const kept = (this.workspace?.files ?? []).filter(
+      (file) => !removed.has(file.path) && !updated.has(file.path),
+    );
+    this.workspace = {
+      files: [...kept, ...files].sort((a, b) => a.path.localeCompare(b.path)),
+      indexedAt: new Date(),
+    };
+  }
+
   public async clear(): Promise<void> {
     this.workspace = undefined;
   }

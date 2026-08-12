@@ -101,7 +101,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     try {
       if (!store.hasIndex()) {
         stream.progress('Building local CodeGraph index...');
-        const result = await indexer.ensureIndex();
+        const result = await indexer.ensureFresh();
         if (result) {
           if (result.filesIndexed === 0) {
             stream.markdown(
@@ -113,6 +113,10 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
           }
           stream.progress(`Indexed ${result.filesIndexed} files and ${result.symbolsIndexed} symbols locally.`);
         }
+      } else if (indexer.hasPendingChanges()) {
+        // Reconcile watcher-queued file changes (agent writes, git ops, terminal
+        // commands) so retrieval never runs against a stale graph.
+        await indexer.ensureFresh();
       }
     } catch (error) {
       indexingError = error instanceof Error ? error.message : String(error);

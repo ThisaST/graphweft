@@ -553,5 +553,11 @@
     "@types/node": "^20.12.12",
     "@types/vscode": "^1.95.0",
     "@vscode/vsce": "^3.9.2"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "@vscode/vsce-sign",
+      "keytar"
+    ]
   }
 }

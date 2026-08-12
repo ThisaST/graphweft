@@ -48,6 +48,11 @@ export interface CodeGraphFile {
    * Used to resolve namespace-based imports to the files that define them.
    */
   moduleName?: string;
+  /**
+   * SHA-256 of the source text at index time. Used by the incremental reindexer to
+   * skip files whose on-disk content has not actually changed (e.g. touch/format no-ops).
+   */
+  contentHash?: string;
 }
 
 export interface IndexedWorkspace {

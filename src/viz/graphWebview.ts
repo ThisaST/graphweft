@@ -72,8 +72,23 @@ export class GraphWebview {
     this.render(filter);
   }
 
+  /**
+   * Live-refresh the open graph with the current index (no-op when the panel is closed).
+   * Sends a data patch to the webview so the existing layout/viewport is preserved
+   * instead of re-rendering the whole HTML document.
+   */
+  public refresh(): void {
+    if (!this.panel) return;
+    const files = this.store.getFiles();
+    if (files.length === 0) return;
+    void this.panel.webview.postMessage({ type: 'update', graph: this.buildGraphJson(files, this.lastFilter) });
+  }
+
+  private lastFilter?: string;
+
   private render(filter?: string): void {
     if (!this.panel) return;
+    this.lastFilter = filter;
     const webview = this.panel.webview;
     const files = this.store.getFiles();
     if (files.length === 0) {

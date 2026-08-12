@@ -13,23 +13,27 @@
     return ext || '';
   }
 
-  const elements = [
-    ...data.nodes.map((n) => ({
-      data: {
-        id: n.id,
-        label: shortLabel(n.label || n.id),
-        full: n.id,
-        community: n.community || 0,
-        size: 12 + Math.min(40, (n.degree || 0) * 1.5),
-        symbols: n.symbols || 0,
-        lang: languageBadge(n.id),
-        isGod: n.isGod ? 1 : 0,
-      },
-    })),
-    ...data.edges.map((e) => ({
-      data: { source: e.source, target: e.target, weight: e.weight || 1 },
-    })),
-  ];
+  function toElements(data) {
+    return [
+      ...data.nodes.map((n) => ({
+        data: {
+          id: n.id,
+          label: shortLabel(n.label || n.id),
+          full: n.id,
+          community: n.community || 0,
+          size: 12 + Math.min(40, (n.degree || 0) * 1.5),
+          symbols: n.symbols || 0,
+          lang: languageBadge(n.id),
+          isGod: n.isGod ? 1 : 0,
+        },
+      })),
+      ...data.edges.map((e) => ({
+        data: { source: e.source, target: e.target, weight: e.weight || 1 },
+      })),
+    ];
+  }
+
+  const elements = toElements(data);
 
   // Cytoscape renders to a <canvas> and cannot resolve CSS `var(--vscode-*)` tokens,
   // so read the theme colors from the document once and pass concrete values.
@@ -130,7 +134,10 @@
     });
   }
 
-  document.getElementById('stats').textContent = `${cy.nodes().length} files · ${cy.edges().length} edges`;
+  function updateStats() {
+    document.getElementById('stats').textContent = `${cy.nodes().length} files · ${cy.edges().length} edges`;
+  }
+  updateStats();
 
   document.getElementById('layout').addEventListener('change', (e) => {
     currentLayout = e.target.value;
@@ -192,15 +199,45 @@
   });
 
   // Legend
-  const communities = new Map();
-  cy.nodes().forEach((n) => {
-    const c = n.data('community');
-    communities.set(c, (communities.get(c) || 0) + 1);
+  function updateLegend() {
+    const communities = new Map();
+    cy.nodes().forEach((n) => {
+      const c = n.data('community');
+      communities.set(c, (communities.get(c) || 0) + 1);
+    });
+    const sorted = Array.from(communities.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    document.getElementById('legend').innerHTML =
+      '<strong>Clusters</strong><br/>' +
+      sorted.map(([c, n]) => `<div><span class="swatch" style="background:${colorFor(c)}"></span>#${c} (${n})</div>`).join('');
+  }
+  updateLegend();
+
+  // Live updates from the extension host: patch the graph in place, preserving the
+  // positions of surviving nodes and only re-running layout when nodes appear/disappear.
+  window.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (!msg || msg.type !== 'update' || !msg.graph) return;
+
+    const positions = new Map();
+    cy.nodes().forEach((n) => positions.set(n.id(), { ...n.position() }));
+
+    cy.batch(() => {
+      cy.elements().remove();
+      cy.add(toElements(msg.graph));
+      cy.nodes().forEach((n) => {
+        const pos = positions.get(n.id());
+        if (pos) n.position(pos);
+      });
+      applyOnlyConnected(document.getElementById('onlyConnected').checked);
+    });
+
+    const structureChanged = msg.graph.nodes.some((n) => !positions.has(n.id)) || positions.size !== msg.graph.nodes.length;
+    if (structureChanged) {
+      relayout();
+    }
+    updateStats();
+    updateLegend();
   });
-  const sorted = Array.from(communities.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  document.getElementById('legend').innerHTML =
-    '<strong>Clusters</strong><br/>' +
-    sorted.map(([c, n]) => `<div><span class="swatch" style="background:${colorFor(c)}"></span>#${c} (${n})</div>`).join('');
 
   function shortLabel(p) {
     const parts = p.split('/');

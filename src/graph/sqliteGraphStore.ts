@@ -5,7 +5,7 @@ import { CodeGraphFile, CodeSymbol, ImportReference, IndexedWorkspace } from './
 import { buildFileGraph } from './graphAlgorithms';
 import { GraphStore } from './graphStore';
 
-const schemaVersion = 2;
+const schemaVersion = 3;
 const databaseFileName = 'codegraph.sqlite';
 
 interface FileRow {
@@ -14,6 +14,7 @@ interface FileRow {
   path: string;
   decorators_json: string;
   module: string | null;
+  content_hash: string | null;
 }
 
 interface SymbolRow {
@@ -89,6 +90,69 @@ export class SqliteGraphStore implements GraphStore {
     await this.persist();
   }
 
+  public async upsert(files: CodeGraphFile[], removedPaths: string[] = []): Promise<void> {
+    if (files.length === 0 && removedPaths.length === 0) {
+      return;
+    }
+
+    const database = this.getDatabase();
+    const touchedPaths = [...new Set([...files.map((f) => f.path), ...removedPaths])];
+
+    database.exec('BEGIN TRANSACTION;');
+    try {
+      // Drop rows for every touched path (symbols/imports cascade), then reinsert the
+      // updated files. Untouched files keep their existing rows.
+      const deleteFile = database.prepare('DELETE FROM files WHERE path = ?;');
+      try {
+        for (const filePath of touchedPaths) {
+          deleteFile.run([filePath]);
+        }
+      } finally {
+        deleteFile.free();
+      }
+
+      this.insertFiles(files);
+
+      // Edges reference resolution is global (an added/removed file can change how any
+      // other file's imports resolve), but recomputing it is pure in-memory work over the
+      // already-parsed file set — the expensive part (re-reading + re-parsing every file)
+      // is what this method avoids.
+      const merged = this.mergeWorkspaceFiles(files, removedPaths);
+      database.exec('DELETE FROM edges;');
+      this.insertEdges(merged);
+      database.exec('COMMIT;');
+    } catch (error) {
+      database.exec('ROLLBACK;');
+      throw error;
+    }
+
+    this.workspace = {
+      files: this.mergeWorkspaceFiles(files, removedPaths),
+      indexedAt: new Date(),
+    };
+    await this.persist();
+  }
+
+  /** In-memory content hashes by path, for the incremental reindexer's dirty check. */
+  public getContentHashes(): Map<string, string> {
+    const hashes = new Map<string, string>();
+    for (const file of this.getFiles()) {
+      if (file.contentHash) {
+        hashes.set(file.path, file.contentHash);
+      }
+    }
+    return hashes;
+  }
+
+  private mergeWorkspaceFiles(updated: CodeGraphFile[], removedPaths: string[]): CodeGraphFile[] {
+    const removed = new Set(removedPaths);
+    const updatedByPath = new Map(updated.map((file) => [file.path, file]));
+    const kept = (this.workspace?.files ?? []).filter(
+      (file) => !removed.has(file.path) && !updatedByPath.has(file.path),
+    );
+    return [...kept, ...updated].sort((a, b) => a.path.localeCompare(b.path));
+  }
+
   public async clear(): Promise<void> {
     const database = this.getDatabase();
     database.exec('DELETE FROM edges; DELETE FROM imports; DELETE FROM symbols; DELETE FROM files;');
@@ -150,7 +214,8 @@ export class SqliteGraphStore implements GraphStore {
         uri TEXT NOT NULL,
         path TEXT NOT NULL UNIQUE,
         decorators_json TEXT NOT NULL DEFAULT '[]',
-        module TEXT
+        module TEXT,
+        content_hash TEXT
       );
 
       CREATE TABLE IF NOT EXISTS symbols (
@@ -202,7 +267,7 @@ export class SqliteGraphStore implements GraphStore {
 
   private insertFiles(files: CodeGraphFile[]): void {
     const database = this.getDatabase();
-    const insertFile = database.prepare('INSERT INTO files (uri, path, decorators_json, module) VALUES (?, ?, ?, ?);');
+    const insertFile = database.prepare('INSERT INTO files (uri, path, decorators_json, module, content_hash) VALUES (?, ?, ?, ?, ?);');
     const insertSymbol = database.prepare(`
       INSERT INTO symbols (
         file_id, name, type, start_line, end_line, signature, snippet, exported, decorators_json, parent_name, tags_json
@@ -216,7 +281,7 @@ export class SqliteGraphStore implements GraphStore {
 
     try {
       for (const file of files) {
-        insertFile.run([file.uri, file.path, JSON.stringify(file.decorators), file.moduleName ?? null]);
+        insertFile.run([file.uri, file.path, JSON.stringify(file.decorators), file.moduleName ?? null, file.contentHash ?? null]);
         const fileId = Number(database.exec('SELECT last_insert_rowid();')[0].values[0][0]);
 
         for (const symbol of file.symbols) {
@@ -255,7 +320,7 @@ export class SqliteGraphStore implements GraphStore {
   private insertEdges(files: CodeGraphFile[]): void {
     const database = this.getDatabase();
     const fileIds = new Map<string, number>();
-    const fileRows = readRows<FileRow>(database.exec('SELECT id, uri, path, decorators_json, module FROM files;')[0]);
+    const fileRows = readRows<FileRow>(database.exec('SELECT id, uri, path, decorators_json, module, content_hash FROM files;')[0]);
     fileRows.forEach((row) => fileIds.set(row.path, row.id));
 
     // Resolve edges with the same multi-language logic the graph view uses, so the stored
@@ -282,7 +347,7 @@ export class SqliteGraphStore implements GraphStore {
 
   private readWorkspace(): IndexedWorkspace | undefined {
     const database = this.getDatabase();
-    const fileRows = readRows<FileRow>(database.exec('SELECT id, uri, path, decorators_json, module FROM files ORDER BY path;')[0]);
+    const fileRows = readRows<FileRow>(database.exec('SELECT id, uri, path, decorators_json, module, content_hash FROM files ORDER BY path;')[0]);
 
     if (fileRows.length === 0) {
       return undefined;
@@ -297,6 +362,7 @@ export class SqliteGraphStore implements GraphStore {
       imports: (importsByFile.get(fileRow.id) ?? []).map(readImportRow),
       symbols: (symbolsByFile.get(fileRow.id) ?? []).map((symbolRow) => readSymbolRow(symbolRow, fileRow.path)),
       moduleName: fileRow.module ?? undefined,
+      contentHash: fileRow.content_hash ?? undefined,
     }));
 
     return {
