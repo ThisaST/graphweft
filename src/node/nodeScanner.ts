@@ -65,6 +65,33 @@ export async function scanDirectory(root: string, options: ScanOptions = {}): Pr
   return out.sort((a, b) => a.workspaceRelativePath.localeCompare(b.workspaceRelativePath));
 }
 
+/** Workspace-relative posix path for an absolute path under `root`. */
+export function toRelativePath(root: string, absolutePath: string): string {
+  return toPosix(nodePath.relative(nodePath.resolve(root), absolutePath));
+}
+
+/**
+ * Read and wrap a single file (incremental refresh path). Returns undefined when the
+ * file is filtered out, too large, or unreadable — callers treat that as "removed".
+ */
+export async function readSourceFile(root: string, absolutePath: string): Promise<WorkspaceSourceFile | undefined> {
+  const rel = toRelativePath(root, absolutePath);
+  if (!rel || rel.startsWith('..') || !isSupportedSourcePath(rel)) return undefined;
+  try {
+    const stat = await fs.stat(absolutePath);
+    if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return undefined;
+    const text = await fs.readFile(absolutePath, 'utf8');
+    return {
+      uri: pathToFileURL(absolutePath).toString(),
+      workspaceRelativePath: rel,
+      text,
+      isTypescript: isTypescriptSourcePath(rel),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function toPosix(p: string): string {
   return p.replace(/\\/gu, '/');
 }
