@@ -1,6 +1,7 @@
 import { CodeGraphFile, CodeSymbol, CodeSymbolType } from '../graph/graphTypes';
 import { extractMultiLangImports } from './multiLangImports';
 import { extractModuleDeclaration } from './moduleDeclarations';
+import { extractTreeSitterSymbols } from './treeSitterIndexer';
 import { WorkspaceSourceFile } from './sourceFile';
 
 interface SymbolPattern {
@@ -88,7 +89,11 @@ const patternsByExtension: Record<string, SymbolPattern[]> = {
 
 export function indexGenericFile(file: WorkspaceSourceFile): CodeGraphFile {
   const ext = getExtension(file.workspaceRelativePath);
-  const symbols = extractSymbols(file.text, file.workspaceRelativePath, ext);
+  // Prefer AST-accurate tree-sitter extraction; fall back to regex when the WASM
+  // runtime or the grammar for this language is unavailable.
+  const symbols =
+    extractTreeSitterSymbols(file.text, file.workspaceRelativePath, ext) ??
+    extractSymbols(file.text, file.workspaceRelativePath, ext);
   const imports = extractMultiLangImports(file.text, ext);
   const moduleName = extractModuleDeclaration(file.text, ext);
 

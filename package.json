@@ -541,17 +541,19 @@
     "prepublishOnly": "npm run compile",
     "cli": "node out/node/cli.js",
     "mcp": "node out/mcp/server.js",
-    "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/graphAlgorithms.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js && node out/test/mcpServer.test.js",
+    "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/graphAlgorithms.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js && node out/test/mcpServer.test.js && node out/test/treeSitter.test.js",
     "watch": "tsc -watch -p .",
     "vscode:prepublish": "npm run compile"
   },
   "dependencies": {
+    "@vscode/tree-sitter-wasm": "^0.3.1",
     "cytoscape": "^3.30.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "graphology-metrics": "^2.4.0",
     "sql.js": "^1.14.1",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "web-tree-sitter": "^0.26.12"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

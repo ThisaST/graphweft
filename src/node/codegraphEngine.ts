@@ -10,6 +10,7 @@ import { CodeGraphFile } from '../graph/graphTypes';
 import { buildGraphReport, renderGraphReportMarkdown } from '../report/graphReport';
 import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
+import { loadGrammar, treeSitterExtensions } from '../indexer/treeSitterIndexer';
 import { scanDirectory, ScanOptions } from './nodeScanner';
 
 export interface IndexSummary {
@@ -38,6 +39,7 @@ export class CodeGraphEngine {
   /** Build (or rebuild) the index from a directory on disk. */
   public async indexDirectory(root: string, options?: ScanOptions): Promise<IndexSummary> {
     const sources = await scanDirectory(root, options);
+    await preloadGrammarsFor(sources.map((file) => file.workspaceRelativePath));
     const files = sources.map((file) => (file.isTypescript ? indexTypeScriptFile(file) : indexGenericFile(file)));
     await this.store.replace(files);
     return {
@@ -104,4 +106,17 @@ export class CodeGraphEngine {
     for (const targets of buildFileGraph(files).adjacency.values()) count += targets.size;
     return count;
   }
+}
+
+/** Best-effort tree-sitter grammar preload for the languages present in `paths`. */
+async function preloadGrammarsFor(paths: string[]): Promise<void> {
+  const known = new Set(treeSitterExtensions());
+  const wanted = new Set<string>();
+  for (const filePath of paths) {
+    const dot = filePath.lastIndexOf('.');
+    if (dot < 0) continue;
+    const ext = filePath.slice(dot).toLowerCase();
+    if (known.has(ext)) wanted.add(ext);
+  }
+  await Promise.all([...wanted].map((ext) => loadGrammar(ext).catch(() => false)));
 }
