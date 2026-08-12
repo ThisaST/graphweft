@@ -7,6 +7,7 @@ import {
   RetrievalResult,
 } from './graphTypes';
 import { applyContextualFileBoosts, createHintMatches, GraphRetrievalHints } from './graphRanker';
+import { buildFileGraph, personalizedPageRank } from './graphAlgorithms';
 import { GraphStore } from './graphStore';
 
 const maxFiles = 16;
@@ -52,14 +53,63 @@ function rankFiles(files: CodeGraphFile[], query: QueryModel, importGraph: Impor
   const hintMatches = createHintMatches(files, hints);
   const mergedResults = mergeRankedFiles([...baseResults, ...hintMatches]);
   const matchedPaths = new Set(mergedResults.filter((result) => result.score > 0).map((result) => result.file.path));
+  const centrality = taskCentrality(files, mergedResults, hints);
 
   return applyContextualFileBoosts(
     mergedResults
-    .map((result) => applyFileBoosts(result, matchedPaths, query, importGraph))
+      .map((result) => applyFileBoosts(result, matchedPaths, query, importGraph))
+      .map((result) => applyCentralityBoost(result, centrality))
       .filter((result) => result.score > 0),
     hints,
   )
     .sort(sortRankedFiles);
+}
+
+/**
+ * Personalized PageRank scores seeded from keyword matches and workspace hints
+ * (Aider repo-map technique): a random walk that teleports back to the task's seed
+ * files, so structural relevance to *this task* — not global popularity — is measured.
+ * Scores are normalized to [0, 1] relative to the best-ranked file.
+ */
+function taskCentrality(
+  files: CodeGraphFile[],
+  mergedResults: RankedFileResult[],
+  hints: GraphRetrievalHints,
+): Map<string, number> {
+  const seeds = new Map<string, number>();
+  for (const result of mergedResults) {
+    if (result.score > 0) seeds.set(result.file.path, result.score);
+  }
+  if (hints.activeFilePath) seeds.set(hints.activeFilePath, (seeds.get(hints.activeFilePath) ?? 0) + 30);
+  for (const p of hints.openFilePaths ?? []) seeds.set(p, (seeds.get(p) ?? 0) + 10);
+  for (const p of hints.changedFilePaths ?? []) seeds.set(p, (seeds.get(p) ?? 0) + 20);
+  if (seeds.size === 0) return new Map();
+
+  const ranks = personalizedPageRank(buildFileGraph(files), seeds);
+  let max = 0;
+  for (const value of ranks.values()) max = Math.max(max, value);
+  if (max === 0) return new Map();
+  const normalized = new Map<string, number>();
+  for (const [node, value] of ranks) normalized.set(node, value / max);
+  return normalized;
+}
+
+/**
+ * Centrality is a *nudge*, not a primary signal: it must never override explicit
+ * intent boosts (e.g. the +45 test-task boost), only break near-ties in favor of
+ * files that are structurally central to the task's neighborhood.
+ */
+const centralityBoostScale = 8;
+
+function applyCentralityBoost(result: RankedFileResult, centrality: Map<string, number>): RankedFileResult {
+  const value = centrality.get(result.file.path) ?? 0;
+  // Only meaningful centrality gets a boost; the long tail of near-zero scores is noise.
+  if (result.score <= 0 || value < 0.05) return result;
+  return {
+    ...result,
+    score: result.score + Math.round(value * centralityBoostScale),
+    reasons: [...result.reasons, `graph centrality ${(value * 100).toFixed(0)}%`],
+  };
 }
 
 function rankSymbols(files: CodeGraphFile[], query: QueryModel, rankedFiles: RankedFileResult[]): RankedSymbolResult[] {

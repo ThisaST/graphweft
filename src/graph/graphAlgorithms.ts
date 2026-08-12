@@ -1,5 +1,7 @@
 import { CodeGraphFile } from './graphTypes';
 import * as path from 'path';
+import Graph from 'graphology';
+import louvain from 'graphology-communities-louvain';
 
 export interface FileGraph {
   nodes: string[];
@@ -152,7 +154,146 @@ export function impactSet(graph: FileGraph, seed: string, maxDepth = 3): string[
   return Array.from(result).sort();
 }
 
+/**
+ * Personalized PageRank over the file import graph (the technique behind Aider's
+ * repo-map). The random walk teleports back to the *seed* files (query matches and
+ * workspace hints like the active editor or changed files) instead of uniformly, so
+ * files that are structurally central **to the current task** rank highest — not
+ * just globally popular utilities.
+ *
+ * Edges are treated bidirectionally with importers weighted slightly lower, since
+ * "X imports Y" makes Y relevant to X more strongly than vice versa.
+ *
+ * @param seeds map of node -> non-negative personalization weight (need not be normalized)
+ * @returns map of node -> PageRank score (sums to ~1 over all nodes)
+ */
+export function personalizedPageRank(
+  graph: FileGraph,
+  seeds: Map<string, number>,
+  damping = 0.85,
+  iterations = 30,
+  tolerance = 1e-6,
+): Map<string, number> {
+  const nodes = graph.nodes;
+  const n = nodes.length;
+  const ranks = new Map<string, number>();
+  if (n === 0) return ranks;
+
+  // Normalized teleport vector; uniform when no valid seeds are provided.
+  let seedTotal = 0;
+  for (const node of nodes) seedTotal += Math.max(0, seeds.get(node) ?? 0);
+  const teleport = new Map<string, number>();
+  for (const node of nodes) {
+    teleport.set(node, seedTotal > 0 ? Math.max(0, seeds.get(node) ?? 0) / seedTotal : 1 / n);
+  }
+
+  const reverseWeight = 0.5;
+  // Out-weight per node counting forward edges at 1 and reverse edges at reverseWeight.
+  const outWeight = new Map<string, number>();
+  for (const node of nodes) {
+    const forward = graph.adjacency.get(node)?.size ?? 0;
+    const reverse = graph.reverseAdjacency.get(node)?.size ?? 0;
+    outWeight.set(node, forward + reverse * reverseWeight);
+  }
+
+  for (const node of nodes) ranks.set(node, teleport.get(node)!);
+
+  for (let i = 0; i < iterations; i++) {
+    const next = new Map<string, number>();
+    let danglingMass = 0;
+    for (const node of nodes) {
+      next.set(node, 0);
+      if ((outWeight.get(node) ?? 0) === 0) danglingMass += ranks.get(node)!;
+    }
+
+    for (const node of nodes) {
+      const rank = ranks.get(node)!;
+      const weight = outWeight.get(node)!;
+      if (weight === 0) continue;
+      const share = rank / weight;
+      for (const target of graph.adjacency.get(node) ?? []) {
+        next.set(target, next.get(target)! + share);
+      }
+      for (const importer of graph.reverseAdjacency.get(node) ?? []) {
+        next.set(importer, next.get(importer)! + share * reverseWeight);
+      }
+    }
+
+    let delta = 0;
+    for (const node of nodes) {
+      const value = damping * (next.get(node)! + danglingMass * teleport.get(node)!) + (1 - damping) * teleport.get(node)!;
+      delta += Math.abs(value - ranks.get(node)!);
+      ranks.set(node, value);
+    }
+    if (delta < tolerance) break;
+  }
+
+  return ranks;
+}
+
+/**
+ * Community detection via Louvain modularity optimization (graphology), replacing the
+ * previous 8-iteration label propagation. Louvain converges to substantially better
+ * modularity partitions on sparse import graphs and is deterministic here thanks to a
+ * fixed rng seed. Falls back to label propagation if Louvain cannot run (e.g. no edges).
+ */
 export function communityLabels(graph: FileGraph): Map<string, number> {
+  if (graph.nodes.length === 0) return new Map();
+
+  const g = new Graph({ type: 'undirected', multi: false });
+  for (const node of graph.nodes) g.addNode(node);
+  let edgeCount = 0;
+  for (const [source, targets] of graph.adjacency) {
+    for (const target of targets) {
+      if (source === target) continue;
+      if (!g.hasEdge(source, target)) {
+        g.addEdge(source, target, { weight: 1 });
+        edgeCount++;
+      } else {
+        g.updateEdgeAttribute(source, target, 'weight', (w) => (w ?? 1) + 1);
+      }
+    }
+  }
+
+  if (edgeCount === 0) {
+    // Louvain requires at least one edge; every file is its own singleton community.
+    return new Map(graph.nodes.map((node, index) => [node, index]));
+  }
+
+  try {
+    const partition = louvain(g, { rng: seededRandom(42), getEdgeWeight: 'weight' });
+    return normalizeCommunityIds(graph.nodes, (node) => partition[node] ?? -1);
+  } catch {
+    return labelPropagation(graph);
+  }
+}
+
+/** Deterministic PRNG (mulberry32) so community ids are stable across runs. */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Renumber raw community labels to compact 0..n ids ordered by first appearance. */
+function normalizeCommunityIds(nodes: string[], labelOf: (node: string) => number | string): Map<string, number> {
+  const labels = new Map<string, number>();
+  const remap = new Map<number | string, number>();
+  for (const node of nodes) {
+    const raw = labelOf(node);
+    if (!remap.has(raw)) remap.set(raw, remap.size);
+    labels.set(node, remap.get(raw)!);
+  }
+  return labels;
+}
+
+/** Legacy label-propagation fallback, kept for graphs Louvain cannot process. */
+function labelPropagation(graph: FileGraph): Map<string, number> {
   const labels = new Map<string, number>();
   graph.nodes.forEach((node, index) => labels.set(node, index));
 
