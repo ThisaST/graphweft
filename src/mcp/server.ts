@@ -12,7 +12,7 @@
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { buildContextMarkdown } from '../compressor/contextCompressor';
-import { buildFileGraph, communityLabels, computeDegrees, impactSet, shortestPath } from '../graph/graphAlgorithms';
+import { buildFileGraph, buildSymbolReferences, communityLabels, computeDegrees, impactSet, shortestPath, symbolUsageCounts } from '../graph/graphAlgorithms';
 import { GraphRetriever } from '../graph/graphRetriever';
 import { InMemoryGraphStore } from '../graph/inMemoryGraphStore';
 import { indexGenericFile } from '../indexer/genericIndexer';
@@ -197,6 +197,38 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
         return sorted
           .map(([id, members]) => `Cluster #${id} (${members.length} files):\n${members.slice(0, 12).map((m) => `  - ${m}`).join('\n')}${members.length > 12 ? '\n  …' : ''}`)
           .join('\n\n');
+      },
+    },
+    {
+      name: 'codegraph_symbol_refs',
+      description:
+        'Symbol-level references: which files import a given symbol (by named import), or — without a symbol — the most-imported symbols in the codebase.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          symbol: { type: 'string', description: 'Symbol name to look up. Omit to list the top most-imported symbols.' },
+          limit: { type: 'number', description: 'Max results (default 15).' },
+        },
+      },
+      run: async (args) => {
+        const limit = typeof args.limit === 'number' ? args.limit : 15;
+        const references = buildSymbolReferences(files());
+        if (typeof args.symbol === 'string' && args.symbol.length > 0) {
+          const matches = references.filter((ref) => ref.symbolName === args.symbol);
+          if (matches.length === 0) return `No named-import references to "${args.symbol}" found.`;
+          const byDefinition = new Map<string, string[]>();
+          for (const ref of matches) {
+            const users = byDefinition.get(ref.toPath) ?? [];
+            users.push(ref.fromPath);
+            byDefinition.set(ref.toPath, users);
+          }
+          return Array.from(byDefinition.entries())
+            .map(([definedIn, users]) => `${args.symbol} (defined in ${definedIn}) is imported by:\n${[...new Set(users)].slice(0, limit).map((u) => `- ${u}`).join('\n')}`)
+            .join('\n\n');
+        }
+        const top = symbolUsageCounts(references).slice(0, limit);
+        if (top.length === 0) return 'No symbol-level references resolved.';
+        return top.map((s) => `- ${s.symbolName} (${s.definedIn}) — imported by ${s.referencedBy} file(s)`).join('\n');
       },
     },
     {

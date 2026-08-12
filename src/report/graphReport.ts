@@ -1,5 +1,5 @@
 import { CodeGraphFile, CodeSymbol } from '../graph/graphTypes';
-import { buildFileGraph, communityLabels, computeDegrees } from '../graph/graphAlgorithms';
+import { buildFileGraph, buildSymbolReferences, communityLabels, computeDegrees, symbolUsageCounts } from '../graph/graphAlgorithms';
 
 export interface GraphReport {
   generatedAt: string;
@@ -7,6 +7,7 @@ export interface GraphReport {
   totalSymbols: number;
   totalEdges: number;
   godNodes: Array<{ path: string; totalDegree: number; inDegree: number; outDegree: number }>;
+  hotSymbols: Array<{ symbolName: string; definedIn: string; referencedBy: number }>;
   orphanFiles: string[];
   largestCommunities: Array<{ id: number; size: number; sample: string[] }>;
   surprisingConnections: Array<{ from: string; to: string; reason: string }>;
@@ -21,6 +22,7 @@ export function buildGraphReport(files: CodeGraphFile[]): GraphReport {
 
   const godNodes = degrees.slice(0, 10).filter((d) => d.totalDegree > 0);
   const orphans = degrees.filter((d) => d.totalDegree === 0).map((d) => d.path).slice(0, 50);
+  const hotSymbols = symbolUsageCounts(buildSymbolReferences(files)).slice(0, 10);
 
   const groups = new Map<number, string[]>();
   for (const [node, label] of labels) {
@@ -43,6 +45,7 @@ export function buildGraphReport(files: CodeGraphFile[]): GraphReport {
     totalSymbols: files.reduce((s, f) => s + f.symbols.length, 0),
     totalEdges,
     godNodes,
+    hotSymbols,
     orphanFiles: orphans,
     largestCommunities,
     surprisingConnections: surprising,
@@ -73,6 +76,16 @@ export function renderGraphReportMarkdown(report: GraphReport): string {
     }
   }
   lines.push(``);
+
+  if (report.hotSymbols.length > 0) {
+    lines.push(`## Hot Symbols (most-imported symbols)`);
+    lines.push(`| Symbol | Defined in | Imported by |`);
+    lines.push(`| --- | --- | ---: |`);
+    for (const symbol of report.hotSymbols) {
+      lines.push(`| \`${symbol.symbolName}\` | \`${symbol.definedIn}\` | ${symbol.referencedBy} |`);
+    }
+    lines.push(``);
+  }
 
   lines.push(`## Communities`);
   if (report.largestCommunities.length === 0) {

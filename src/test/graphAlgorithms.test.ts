@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildFileGraph, communityLabels, personalizedPageRank } from '../graph/graphAlgorithms';
+import { buildFileGraph, buildSymbolReferences, communityLabels, personalizedPageRank, symbolUsageCounts } from '../graph/graphAlgorithms';
 import { reciprocalRankFusion } from '../graph/graphRanker';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
 import type { WorkspaceSourceFile } from '../indexer/workspaceScanner';
@@ -108,6 +108,39 @@ function runTests(): void {
   const expectedB = 1 / 62 + 1 / 61 + 1 / 61;
   assert.ok(Math.abs((fused.get('b.ts') ?? 0) - expectedB) < 1e-12, 'k=60 formula 1/(k+rank) holds');
   assert.strictEqual(reciprocalRankFusion([]).size, 0, 'no rankings yields empty fusion');
+
+  // --- Symbol-level references ---------------------------------------------------------
+  const symFiles = [
+    testFile(
+      'src/user.service.ts',
+      ['export class UserService {}', 'export class UserRepo {}', 'class Hidden {}'].join('\n'),
+    ),
+    testFile(
+      'src/user.controller.ts',
+      ['import { UserService } from "./user.service";', 'export class UserController {}'].join('\n'),
+    ),
+    testFile(
+      'src/admin.controller.ts',
+      ['import { UserService, UserRepo } from "./user.service";', 'export class AdminController {}'].join('\n'),
+    ),
+    testFile(
+      'src/unrelated.ts',
+      ['import * as everything from "./user.service";', 'export const x = 1;'].join('\n'),
+    ),
+  ].map(indexTypeScriptFile);
+
+  const refs = buildSymbolReferences(symFiles);
+  const key = (r: { fromPath: string; toPath: string; symbolName: string }) => `${r.fromPath} -> ${r.toPath}#${r.symbolName}`;
+  const refKeys = new Set(refs.map(key));
+  assert.ok(refKeys.has('src/user.controller.ts -> src/user.service.ts#UserService'), 'named import resolves to symbol edge');
+  assert.ok(refKeys.has('src/admin.controller.ts -> src/user.service.ts#UserRepo'), 'multi-name import resolves each symbol');
+  assert.ok(!refs.some((r) => r.symbolName === 'Hidden'), 'non-exported symbols are never edges');
+  assert.ok(!refs.some((r) => r.fromPath === 'src/unrelated.ts'), 'namespace import contributes no symbol edges');
+
+  const usage = symbolUsageCounts(refs);
+  assert.strictEqual(usage[0]?.symbolName, 'UserService', 'most-imported symbol ranks first');
+  assert.strictEqual(usage[0]?.referencedBy, 2, 'usage counts distinct importing files');
+  assert.strictEqual(usage[0]?.definedIn, 'src/user.service.ts', 'definition file tracked');
 
   console.log('graphAlgorithms.test.ts passed');
 }

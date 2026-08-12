@@ -336,6 +336,74 @@ function labelPropagation(graph: FileGraph): Map<string, number> {
   return labels;
 }
 
+/**
+ * Symbol-level reference edge: a named import binds a *symbol* in the target file,
+ * giving a finer-grained graph than file→file edges. `fromPath` imports `symbolName`
+ * (declared in `toPath`) — e.g. `import { UserService } from './user.service'`.
+ */
+export interface SymbolReference {
+  fromPath: string;
+  toPath: string;
+  symbolName: string;
+  /** Line of the import statement in `fromPath` (1-based), when known. */
+  line?: number;
+}
+
+/**
+ * Build the symbol-level reference graph from named imports resolved against exported
+ * symbols. Wildcard/default imports contribute no symbol edges (they stay file-level).
+ */
+export function buildSymbolReferences(files: CodeGraphFile[]): SymbolReference[] {
+  const index = buildFileIndex(files);
+  const references: SymbolReference[] = [];
+
+  // Exported symbol names per file, for O(1) membership checks.
+  const exportedByPath = new Map<string, Set<string>>();
+  for (const file of files) {
+    exportedByPath.set(file.path, new Set(file.symbols.filter((s) => s.exported).map((s) => s.name)));
+  }
+
+  for (const file of files) {
+    for (const importRef of file.imports) {
+      if (importRef.importedNames.length === 0) continue;
+      const targets = resolveSpecifier(file, importRef.specifier, index);
+      for (const target of targets) {
+        if (target.path === file.path) continue;
+        const exported = exportedByPath.get(target.path);
+        if (!exported || exported.size === 0) continue;
+        for (const name of importRef.importedNames) {
+          if (exported.has(name)) {
+            references.push({ fromPath: file.path, toPath: target.path, symbolName: name, line: importRef.line });
+          }
+        }
+      }
+    }
+  }
+
+  return references;
+}
+
+/**
+ * Symbols referenced (via named imports) by the most files — finer-grained hotspots
+ * than file degree: `UserService` being imported from 40 files is a stronger coupling
+ * signal than its host file having 40 importers for mixed reasons.
+ */
+export function symbolUsageCounts(references: SymbolReference[]): Array<{ symbolName: string; definedIn: string; referencedBy: number }> {
+  const usage = new Map<string, Set<string>>();
+  for (const ref of references) {
+    const key = `${ref.toPath}::${ref.symbolName}`;
+    const users = usage.get(key) ?? new Set<string>();
+    users.add(ref.fromPath);
+    usage.set(key, users);
+  }
+  return Array.from(usage.entries())
+    .map(([key, users]) => {
+      const separator = key.indexOf('::');
+      return { definedIn: key.slice(0, separator), symbolName: key.slice(separator + 2), referencedBy: users.size };
+    })
+    .sort((a, b) => b.referencedBy - a.referencedBy || a.symbolName.localeCompare(b.symbolName));
+}
+
 const FILE_EXTENSIONS = [
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
   '.py', '.go', '.rs', '.java', '.kt', '.kts', '.scala', '.groovy',
@@ -349,48 +417,43 @@ function resolveImports(file: CodeGraphFile, index: FileIndex): CodeGraphFile[] 
   const resolved: CodeGraphFile[] = [];
   const seen = new Set<string>();
 
-  const add = (target: CodeGraphFile | undefined): void => {
-    if (target && !seen.has(target.path)) {
-      seen.add(target.path);
-      resolved.push(target);
-    }
-  };
-
   for (const importRef of file.imports) {
-    const specifier = importRef.specifier?.trim();
-    if (!specifier) continue;
-
-    if (specifier.startsWith('.')) {
-      add(resolveRelative(file.path, specifier, index.byPath));
-      continue;
+    for (const target of resolveSpecifier(file, importRef.specifier, index)) {
+      if (!seen.has(target.path)) {
+        seen.add(target.path);
+        resolved.push(target);
+      }
     }
-
-    // Namespace / package import (C#, Java, Kotlin, Scala, PHP, VB).
-    const namespaceTargets = resolveNamespace(specifier, index.byModule);
-    if (namespaceTargets.length > 0) {
-      namespaceTargets.forEach(add);
-      continue;
-    }
-
-    // Workspace package import (`@scope/pkg`, `@scope/pkg/entry`) in a monorepo.
-    const workspaceTarget = resolveWorkspacePackage(specifier, index.byDirName, index.byPath);
-    if (workspaceTarget) {
-      add(workspaceTarget);
-      continue;
-    }
-
-    // Path-like specifier: C/C++ #include, Ruby require, Lua require, module paths.
-    const pathTarget = resolvePathLike(specifier, index.byPath);
-    if (pathTarget) {
-      add(pathTarget);
-      continue;
-    }
-
-    // Last-resort: match the final segment against a unique file base name.
-    add(resolveByBaseName(specifier, index.byBaseName));
   }
 
   return resolved;
+}
+
+/** Resolve a single import specifier to its target file(s), across all supported languages. */
+function resolveSpecifier(file: CodeGraphFile, rawSpecifier: string, index: FileIndex): CodeGraphFile[] {
+  const specifier = rawSpecifier?.trim();
+  if (!specifier) return [];
+
+  if (specifier.startsWith('.')) {
+    const relative = resolveRelative(file.path, specifier, index.byPath);
+    return relative ? [relative] : [];
+  }
+
+  // Namespace / package import (C#, Java, Kotlin, Scala, PHP, VB).
+  const namespaceTargets = resolveNamespace(specifier, index.byModule);
+  if (namespaceTargets.length > 0) return namespaceTargets;
+
+  // Workspace package import (`@scope/pkg`, `@scope/pkg/entry`) in a monorepo.
+  const workspaceTarget = resolveWorkspacePackage(specifier, index.byDirName, index.byPath);
+  if (workspaceTarget) return [workspaceTarget];
+
+  // Path-like specifier: C/C++ #include, Ruby require, Lua require, module paths.
+  const pathTarget = resolvePathLike(specifier, index.byPath);
+  if (pathTarget) return [pathTarget];
+
+  // Last-resort: match the final segment against a unique file base name.
+  const byBase = resolveByBaseName(specifier, index.byBaseName);
+  return byBase ? [byBase] : [];
 }
 
 /** Relative import: resolve against the importing file's directory, trying common extensions. */
