@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/out/mcp/server.js", "${workspaceFolder}"]
+    }
+  }
+}

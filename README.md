@@ -80,6 +80,10 @@ Tools: `codegraph_context` (ranked context for a task), `codegraph_impact` (blas
 `codegraph_stats`. The server watches the workspace and re-indexes changed files on each call,
 so agents always see the current structure.
 
+Per-client setup (Claude Code, Copilot CLI, Codex, Cursor, Ollama) with verified commands is in
+[INTEGRATIONS.md](INTEGRATIONS.md). Measured token savings vs naive retrieval (~90%) are in
+[BENCHMARKS.md](BENCHMARKS.md).
+
 ## Languages
 
 CodeGraph indexes symbols **and resolves imports** for:
