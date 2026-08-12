@@ -1,0 +1,557 @@
+{
+  "name": "codemap-graph",
+  "displayName": "Codemap — Local Code Graph",
+  "description": "Local-first code graph for chat: a privacy-audited @codegraph chat participant, interactive graph viewer, multi-language indexing, and slash commands for path/impact/report. Works with GitHub Copilot Chat.",
+  "version": "0.6.0",
+  "publisher": "ThisaraPramu",
+  "icon": "media/icon.png",
+  "license": "MIT",
+  "keywords": [
+    "codemap",
+    "code map",
+    "code graph",
+    "copilot chat",
+    "local-first",
+    "privacy",
+    "token savings",
+    "dependency graph"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/codegraph-copilot-chat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/codegraph-copilot-chat/issues"
+  },
+  "galleryBanner": {
+    "color": "#0d1117",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=18"
+  },
+  "files": [
+    "out",
+    "media/icon.png",
+    "README.md",
+    "COMMANDS.md",
+    "INTEGRATIONS.md",
+    "ALGORITHMS.md",
+    "LICENSE"
+  ],
+  "categories": [
+    "AI",
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onChatParticipant:codegraph.chat",
+    "onView:codegraph.sidebar",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codegraph.buildIndex",
+        "title": "Build Local Index",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.buildSemanticIndex",
+        "title": "Build Semantic Index (local embeddings)",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.showGraph",
+        "title": "Open Interactive Graph",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.showReport",
+        "title": "Generate Graph Report",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.showSavings",
+        "title": "Token Savings Analysis",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.showPrivacyCenter",
+        "title": "Open Privacy Center",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.wipeIndex",
+        "title": "Wipe Local Data",
+        "category": "CodeGraph"
+      },
+      {
+        "command": "codegraph.refreshSidebar",
+        "title": "Refresh Sidebar",
+        "category": "CodeGraph",
+        "icon": "$(refresh)"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "codegraph.chat",
+        "name": "codegraph",
+        "fullName": "CodeGraph",
+        "description": "Ask CodeGraph to understand, fix, test, or review this workspace using a local code graph. Try /help for slash commands.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "path",
+            "description": "Find the shortest import path between two files (local, no model call)"
+          },
+          {
+            "name": "impact",
+            "description": "List files that transitively depend on a given file (local)"
+          },
+          {
+            "name": "report",
+            "description": "Generate a full local graph report (god nodes, communities, surprises)"
+          },
+          {
+            "name": "viz",
+            "description": "Open the interactive graph panel"
+          },
+          {
+            "name": "godnodes",
+            "description": "List the most-connected files"
+          },
+          {
+            "name": "savings",
+            "description": "Token-savings analysis: how many tokens CodeGraph saved vs. a naive baseline"
+          },
+          {
+            "name": "models",
+            "description": "Benchmark table of available models (capability, cost, speed, context) and your current pick"
+          },
+          {
+            "name": "audit",
+            "description": "Show the last 10 model calls and bytes sent"
+          },
+          {
+            "name": "privacy",
+            "description": "Open the Privacy Center to switch modes"
+          },
+          {
+            "name": "wipe",
+            "description": "Wipe the local index and/or audit log"
+          },
+          {
+            "name": "help",
+            "description": "List all CodeGraph commands"
+          }
+        ]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "codegraph_runInTerminal",
+        "displayName": "Run in Terminal",
+        "modelDescription": "Run a shell command in the workspace root and return its combined stdout/stderr and exit code. Use this to build, run tests, start the app, run git, or any command-line task. The user is asked to confirm before the command runs unless they enabled auto-approval.",
+        "userDescription": "Let CodeGraph run shell commands (with confirmation)",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "runInTerminal",
+        "icon": "$(terminal)",
+        "tags": [
+          "codegraph",
+          "terminal",
+          "execute"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The exact shell command to run."
+            },
+            "explanation": {
+              "type": "string",
+              "description": "One sentence on why this command is being run, shown to the user."
+            },
+            "cwd": {
+              "type": "string",
+              "description": "Optional working directory relative to the workspace root."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_readFile",
+        "displayName": "Read File",
+        "modelDescription": "Read the contents of a file in the workspace, optionally limited to a line range. Read-only; returns numbered lines.",
+        "userDescription": "Let CodeGraph read workspace files",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "readFile",
+        "icon": "$(file)",
+        "tags": [
+          "codegraph",
+          "read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "File path relative to the workspace root."
+            },
+            "startLine": {
+              "type": "number",
+              "description": "Optional 1-based first line to read."
+            },
+            "endLine": {
+              "type": "number",
+              "description": "Optional 1-based last line to read."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_writeFile",
+        "displayName": "Write File",
+        "modelDescription": "Create a new file or overwrite an existing one with the given full content. The user is asked to confirm unless they enabled auto-approval of edits.",
+        "userDescription": "Let CodeGraph create or overwrite files (with confirmation)",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "writeFile",
+        "icon": "$(new-file)",
+        "tags": [
+          "codegraph",
+          "edit"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "File path relative to the workspace root."
+            },
+            "content": {
+              "type": "string",
+              "description": "The full new content of the file."
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_replaceInFile",
+        "displayName": "Replace in File",
+        "modelDescription": "Replace an exact text snippet in an existing file. By default replaces the first occurrence; set all=true to replace every occurrence. Fails if the find text is not present. The user is asked to confirm unless they enabled auto-approval of edits.",
+        "userDescription": "Let CodeGraph apply targeted edits to files (with confirmation)",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "replaceInFile",
+        "icon": "$(edit)",
+        "tags": [
+          "codegraph",
+          "edit"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "File path relative to the workspace root."
+            },
+            "find": {
+              "type": "string",
+              "description": "The exact text to find."
+            },
+            "replace": {
+              "type": "string",
+              "description": "The text to replace it with."
+            },
+            "all": {
+              "type": "boolean",
+              "description": "Replace all occurrences instead of just the first."
+            }
+          },
+          "required": [
+            "path",
+            "find",
+            "replace"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_listDirectory",
+        "displayName": "List Directory",
+        "modelDescription": "List the files and subfolders of a directory in the workspace. Read-only.",
+        "userDescription": "Let CodeGraph list workspace folders",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "listDirectory",
+        "icon": "$(folder)",
+        "tags": [
+          "codegraph",
+          "read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Directory path relative to the workspace root. Defaults to the root."
+            }
+          }
+        }
+      },
+      {
+        "name": "codegraph_findFiles",
+        "displayName": "Find Files",
+        "modelDescription": "Find files in the workspace by glob pattern (e.g. src/**/*.ts). Read-only; excludes node_modules, dist, build, and .git.",
+        "userDescription": "Let CodeGraph search for files by name",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "findFiles",
+        "icon": "$(search)",
+        "tags": [
+          "codegraph",
+          "read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "glob": {
+              "type": "string",
+              "description": "Glob pattern to match, relative to the workspace root."
+            },
+            "maxResults": {
+              "type": "number",
+              "description": "Maximum number of results (default 50, max 500)."
+            }
+          },
+          "required": [
+            "glob"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_impact",
+        "displayName": "Impact Set",
+        "modelDescription": "Using the local code graph, list every file that transitively imports the given file (its reverse-dependency / blast radius). Use before changing a widely-used file.",
+        "userDescription": "Let CodeGraph compute a file's impact set",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "impact",
+        "icon": "$(references)",
+        "tags": [
+          "codegraph",
+          "graph"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string",
+              "description": "File path (full or partial) to analyze."
+            },
+            "depth": {
+              "type": "number",
+              "description": "Max traversal depth (default 4)."
+            }
+          },
+          "required": [
+            "file"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_dependencyPath",
+        "displayName": "Dependency Path",
+        "modelDescription": "Using the local code graph, find the shortest import path between two files. Useful for understanding how two parts of the codebase are connected.",
+        "userDescription": "Let CodeGraph trace import paths between files",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "dependencyPath",
+        "icon": "$(git-compare)",
+        "tags": [
+          "codegraph",
+          "graph"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Source file path (full or partial)."
+            },
+            "to": {
+              "type": "string",
+              "description": "Target file path (full or partial)."
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ]
+        }
+      },
+      {
+        "name": "codegraph_godNodes",
+        "displayName": "Hub Files",
+        "modelDescription": "Using the local code graph, list the most-connected files (degree centrality) — the architectural hubs of the codebase.",
+        "userDescription": "Let CodeGraph list the most-connected files",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "godNodes",
+        "icon": "$(star)",
+        "tags": [
+          "codegraph",
+          "graph"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "How many hub files to return (default 15)."
+            }
+          }
+        }
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codegraph",
+          "title": "CodeGraph",
+          "icon": "media/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codegraph": [
+        {
+          "id": "codegraph.sidebar",
+          "name": "Local Code Graph",
+          "icon": "media/sidebar-icon.svg",
+          "contextualTitle": "CodeGraph"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "codegraph.refreshSidebar",
+          "when": "view == codegraph.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "codegraph.showGraph",
+          "when": "view == codegraph.sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeGraph",
+      "properties": {
+        "codegraph.privacyMode": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "preview-before-send",
+            "local-only"
+          ],
+          "default": "standard",
+          "description": "Controls whether CodeGraph sends prompts to the language model. 'standard' sends prompts and logs each send to the audit log. 'preview-before-send' asks for confirmation each time. 'local-only' blocks all model calls — the extension only indexes and visualizes locally."
+        },
+        "codegraph.enableAgentTools": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow the @codegraph chat agent to use tools — running terminal commands, reading/writing files, and querying the code graph — to actually carry out requests. Turn off to make @codegraph a read-only responder that only explains and suggests."
+        },
+        "codegraph.includeExternalTools": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also expose tools registered by other extensions (e.g. Copilot's built-in tools) to the @codegraph agent, so it is not capability-limited compared with the built-in agent. Disable to restrict @codegraph to its own CodeGraph tools only."
+        },
+        "codegraph.maxTools": {
+          "type": "number",
+          "default": 128,
+          "minimum": 1,
+          "maximum": 128,
+          "description": "Maximum number of tools to send to the model per request. Language models reject requests with more than 128 tools, so CodeGraph caps the list here (its own tools are always kept first). Lower this if a model you use has a smaller limit."
+        },
+        "codegraph.maxAgentSteps": {
+          "type": "number",
+          "default": 16,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum number of model round-trips the @codegraph agent may take in a single turn before it stops and offers a Continue button. Higher values let it complete larger multi-file tasks (e.g. read several files then apply several edits) without interruption; lower values cap cost per turn."
+        },
+        "codegraph.autoApproveCommands": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run terminal commands requested by the agent WITHOUT asking for confirmation. Off by default — every command shows an inline 'Continue/Cancel' prompt. Enable only if you trust the agent in this workspace."
+        },
+        "codegraph.autoApproveEdits": {
+          "type": "boolean",
+          "default": false,
+          "description": "Create, overwrite, and edit files requested by the agent WITHOUT asking for confirmation. Off by default — every file change shows an inline confirmation."
+        },
+        "codegraph.suggestModel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Master switch for model-fit suggestions. On simple queries CodeGraph suggests a cheaper model to save tokens; on hard queries a stronger one. Difficulty is scored locally first. Turn off to disable all model suggestions/prompts."
+        },
+        "codegraph.modelSwitchPrompt": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a better-fit model is found, show in-chat buttons in the reply asking whether to answer with it. Clicking one reroutes @codegraph's OWN answer to your choice (re-runs the query on the next turn; your global model picker is never changed) and remembers your preference. Turn off to get a non-interactive advisory banner instead."
+        },
+        "codegraph.suggestModelUsesLLM": {
+          "type": "boolean",
+          "default": true,
+          "description": "On genuinely borderline queries, spend one tiny call to the CHEAPEST available model (query text only, never your code context) to grade difficulty more accurately. Results are cached so repeat questions are free, and the call is skipped entirely in local-only privacy mode. Turn off to rely on the zero-cost local heuristic alone."
+        },
+        "codegraph.semanticSearch.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in semantic (meaning-based) retrieval on top of the lexical+graph ranking, powered by a LOCAL embedding server you run yourself (Ollama or compatible). Nothing is bundled and no code ever leaves your machine — the endpoint is restricted to localhost. After enabling, run 'CodeGraph: Build Semantic Index'."
+        },
+        "codegraph.semanticSearch.endpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL of the local embedding server (Ollama-compatible). Must be a loopback address (localhost/127.0.0.1) — remote endpoints are rejected by design."
+        },
+        "codegraph.semanticSearch.model": {
+          "type": "string",
+          "default": "nomic-embed-text",
+          "description": "Embedding model the local server should use (e.g. 'nomic-embed-text', 'mxbai-embed-large'). Pull it first: `ollama pull nomic-embed-text`."
+        }
+      }
+    }
+  },
+  "bin": {
+    "codegraph": "out/node/cli.js"
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "prepublishOnly": "npm run compile",
+    "cli": "node out/node/cli.js",
+    "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "cytoscape": "^3.30.0",
+    "sql.js": "^1.14.1",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.9.2"
+  }
+}

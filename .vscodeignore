@@ -1,0 +1,40 @@
+# --- Source & build tooling (compiled output in out/ ships instead) ---
+src/**
+out/test/**
+**/*.map
+**/*.ts
+!out/**/*.js
+tsconfig.json
+.gitignore
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# --- Editor / repo metadata ---
+.vscode/**
+.git/**
+.github/**
+.claude/**
+
+# --- Docs that don't need to ship inside the VSIX ---
+# (README.md and LICENSE are always included by vsce — do not list them here)
+COMMANDS.md
+PUBLISHING.md
+INTEGRATIONS.md
+ALGORITHMS.md
+docs/**
+
+# Headless CLI / engine — used by the (future) npm + MCP distribution, not the extension itself.
+out/node/**
+implementation/**
+
+# --- Keep only the icon assets the extension actually uses at runtime ---
+media/icon.svg
+
+# === DO NOT IGNORE THE FOLLOWING — they are loaded at RUNTIME ===
+# The webview loads cytoscape from node_modules/cytoscape/dist/cytoscape.min.js
+# and the graph store loads the sql.js WASM via require.resolve('sql.js/dist/..').
+# vsce keeps production `dependencies` automatically; the lines below make the
+# intent explicit and guard against an over-broad node_modules ignore.
+!node_modules/cytoscape/dist/**
+!node_modules/sql.js/dist/**
