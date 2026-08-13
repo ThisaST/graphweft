@@ -1,3 +1,6 @@
 allowBuilds:
   '@vscode/vsce-sign': false
   keytar: false
+  onnxruntime-node: true
+  protobufjs: false
+  sharp: false
