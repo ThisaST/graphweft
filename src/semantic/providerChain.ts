@@ -22,6 +22,8 @@ export interface EmbeddingChainConfig {
   local?: LocalEmbeddingConfig;
   /** Ollama endpoint+model; only consulted when set (or runtime is 'ollama'). */
   ollama?: Partial<EmbeddingProviderConfig>;
+  /** Provider construction override — used by tests to inject fakes. */
+  factories?: EmbeddingProviderFactories;
 }
 
 export interface EmbeddingProviderFactories {
@@ -43,13 +45,14 @@ const DEFAULT_OLLAMA_MODEL = 'nomic-embed-text';
  */
 export async function resolveEmbeddingProvider(
   config: EmbeddingChainConfig = {},
-  factories: EmbeddingProviderFactories = defaultFactories,
+  factories?: EmbeddingProviderFactories,
 ): Promise<EmbeddingProvider | undefined> {
+  const active = factories ?? config.factories ?? defaultFactories;
   const runtime = config.runtime ?? (process.env.CODEGRAPH_EMBED_RUNTIME as EmbeddingRuntime | undefined) ?? 'auto';
   if (runtime === 'off') return undefined;
 
   if (runtime === 'local' || runtime === 'auto') {
-    const local = factories.createLocal(config.local ?? {});
+    const local = active.createLocal(config.local ?? {});
     if (await local.isAvailable()) return local;
     if (runtime === 'local') return undefined;
   }
@@ -57,7 +60,7 @@ export async function resolveEmbeddingProvider(
   const wantsOllama = runtime === 'ollama' || (runtime === 'auto' && config.ollama !== undefined);
   if (wantsOllama) {
     try {
-      const ollama = factories.createOllama({
+      const ollama = active.createOllama({
         endpoint: config.ollama?.endpoint ?? DEFAULT_OLLAMA_ENDPOINT,
         model: config.ollama?.model ?? DEFAULT_OLLAMA_MODEL,
       });
