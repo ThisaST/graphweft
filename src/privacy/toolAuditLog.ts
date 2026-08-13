@@ -5,13 +5,13 @@ import * as crypto from 'crypto';
  * A persistent record of every agent tool the model invoked. This is the
  * "actions" counterpart of the model-call {@link AuditLog}: it lets a team see,
  * after the fact, exactly which commands were run and which files were touched
- * by the @codegraph agent — keeping the "local-first, nothing happens without a
+ * by the @graphweft agent — keeping the "local-first, nothing happens without a
  * trace" promise even now that the agent can act on the workspace.
  */
 export interface ToolAuditEntry {
   id: string;
   timestamp: string;
-  /** Tool name, e.g. `codegraph_runInTerminal`. */
+  /** Tool name, e.g. `graphweft_runInTerminal`. */
   tool: string;
   /** Short human-readable summary of what was invoked (command line, file path…). */
   summary: string;

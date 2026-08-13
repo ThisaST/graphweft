@@ -1,6 +1,6 @@
 import * as path from 'path';
 import {
-  CodeGraphFile,
+  GraphweftFile,
   CodeSymbol,
   RankedFileResult,
   RankedSymbolResult,
@@ -21,8 +21,8 @@ interface QueryModel {
 }
 
 interface ImportGraph {
-  importsByPath: Map<string, CodeGraphFile[]>;
-  importersByPath: Map<string, CodeGraphFile[]>;
+  importsByPath: Map<string, GraphweftFile[]>;
+  importersByPath: Map<string, GraphweftFile[]>;
 }
 
 export class GraphRetriever {
@@ -48,7 +48,7 @@ export class GraphRetriever {
   }
 }
 
-function rankFiles(files: CodeGraphFile[], query: QueryModel, importGraph: ImportGraph, hints: GraphRetrievalHints): RankedFileResult[] {
+function rankFiles(files: GraphweftFile[], query: QueryModel, importGraph: ImportGraph, hints: GraphRetrievalHints): RankedFileResult[] {
   const baseResults = files.map((file) => scoreFile(file, query));
   const hintMatches = createHintMatches(files, hints);
   const mergedResults = mergeRankedFiles([...baseResults, ...hintMatches]);
@@ -73,7 +73,7 @@ function rankFiles(files: CodeGraphFile[], query: QueryModel, importGraph: Impor
  * hand-tuned scale factors. The fused value is normalized to [0, 1].
  */
 function fuseGraphSignals(
-  files: CodeGraphFile[],
+  files: GraphweftFile[],
   mergedResults: RankedFileResult[],
   hints: GraphRetrievalHints,
 ): Map<string, number> {
@@ -112,7 +112,7 @@ function fuseGraphSignals(
  * Scores are normalized to [0, 1] relative to the best-ranked file.
  */
 function taskCentrality(
-  files: CodeGraphFile[],
+  files: GraphweftFile[],
   mergedResults: RankedFileResult[],
   hints: GraphRetrievalHints,
 ): Map<string, number> {
@@ -152,7 +152,7 @@ function applyCentralityBoost(result: RankedFileResult, fusedSignal: Map<string,
   };
 }
 
-function rankSymbols(files: CodeGraphFile[], query: QueryModel, rankedFiles: RankedFileResult[]): RankedSymbolResult[] {
+function rankSymbols(files: GraphweftFile[], query: QueryModel, rankedFiles: RankedFileResult[]): RankedSymbolResult[] {
   const fileScores = new Map(rankedFiles.map((result) => [result.file.path, result.score]));
 
   return files
@@ -181,7 +181,7 @@ function mergeRankedFiles(results: RankedFileResult[]): RankedFileResult[] {
   return Array.from(merged.values());
 }
 
-function scoreFile(file: CodeGraphFile, query: QueryModel): RankedFileResult {
+function scoreFile(file: GraphweftFile, query: QueryModel): RankedFileResult {
   let score = 0;
   const reasons = new Set<string>();
   const normalizedPath = normalizeForMatching(file.path);
@@ -248,7 +248,7 @@ function applyFileBoosts(
   };
 }
 
-function scoreSymbol(symbol: CodeSymbol, file: CodeGraphFile, query: QueryModel, fileScore: number): RankedSymbolResult {
+function scoreSymbol(symbol: CodeSymbol, file: GraphweftFile, query: QueryModel, fileScore: number): RankedSymbolResult {
   let score = Math.min(fileScore / 4, 8);
   const reasons = new Set<string>();
   const normalizedName = normalizeForMatching(symbol.name);
@@ -336,7 +336,7 @@ function expandOneHop(initialResults: RankedFileResult[], importGraph: ImportGra
   return Array.from(results.values()).sort(sortRankedFiles);
 }
 
-function buildDependencyFlow(selectedFiles: CodeGraphFile[], importGraph: ImportGraph): string[] {
+function buildDependencyFlow(selectedFiles: GraphweftFile[], importGraph: ImportGraph): string[] {
   const selectedPaths = new Set(selectedFiles.map((file) => file.path));
   const flow: string[] = [];
 
@@ -351,7 +351,7 @@ function buildDependencyFlow(selectedFiles: CodeGraphFile[], importGraph: Import
   return Array.from(new Set(flow));
 }
 
-function findRelatedTests(query: QueryModel, selectedFiles: CodeGraphFile[], allFiles: CodeGraphFile[]): string[] {
+function findRelatedTests(query: QueryModel, selectedFiles: GraphweftFile[], allFiles: GraphweftFile[]): string[] {
   const selectedStems = selectedFiles.map((file) => normalizeStem(file.path));
   const tests = allFiles.filter((file) => isTestFile(file.path));
   const related = tests.filter((testFile) => {
@@ -369,10 +369,10 @@ function findRelatedTests(query: QueryModel, selectedFiles: CodeGraphFile[], all
   return related.map((file) => file.path).sort();
 }
 
-function buildImportGraph(files: CodeGraphFile[]): ImportGraph {
+function buildImportGraph(files: GraphweftFile[]): ImportGraph {
   const byPath = new Map(files.map((file) => [file.path, file]));
-  const importsByPath = new Map<string, CodeGraphFile[]>();
-  const importersByPath = new Map<string, CodeGraphFile[]>();
+  const importsByPath = new Map<string, GraphweftFile[]>();
+  const importersByPath = new Map<string, GraphweftFile[]>();
 
   for (const file of files) {
     const importedFiles = resolveImports(file, byPath);
@@ -391,8 +391,8 @@ function buildImportGraph(files: CodeGraphFile[]): ImportGraph {
   };
 }
 
-function resolveImports(file: CodeGraphFile, byPath: Map<string, CodeGraphFile>): CodeGraphFile[] {
-  const resolved: CodeGraphFile[] = [];
+function resolveImports(file: GraphweftFile, byPath: Map<string, GraphweftFile>): GraphweftFile[] {
+  const resolved: GraphweftFile[] = [];
 
   for (const importRef of file.imports) {
     if (!importRef.specifier.startsWith('.')) {
@@ -412,7 +412,7 @@ function resolveImports(file: CodeGraphFile, byPath: Map<string, CodeGraphFile>)
       path.posix.join(importBase, 'index.jsx'),
     ];
 
-    const match = candidates.map((candidate) => byPath.get(candidate)).find((candidate): candidate is CodeGraphFile => Boolean(candidate));
+    const match = candidates.map((candidate) => byPath.get(candidate)).find((candidate): candidate is GraphweftFile => Boolean(candidate));
     if (match) {
       resolved.push(match);
     }

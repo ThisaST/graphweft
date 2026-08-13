@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * codegraph CLI — runs the local code-graph engine headlessly (no VS Code). Usable directly,
+ * graphweft CLI — runs the local code-graph engine headlessly (no VS Code). Usable directly,
  * and as a shell tool by any AI coding tool (Claude Code, Codex, Copilot CLI) that can run
  * commands. The MCP server wraps this same engine for richer integrations.
  *
- *   codegraph index   [dir]                 build the graph, print a summary
- *   codegraph search  [dir] <query...>      ranked, structure-aware context for a query (JSON)
- *   codegraph impact  [dir] <file>          files that transitively depend on <file>
- *   codegraph path    [dir] <fileA> <fileB> shortest dependency path
- *   codegraph report  [dir]                 full graph report (markdown)
+ *   graphweft index   [dir]                 build the graph, print a summary
+ *   graphweft search  [dir] <query...>      ranked, structure-aware context for a query (JSON)
+ *   graphweft impact  [dir] <file>          files that transitively depend on <file>
+ *   graphweft path    [dir] <fileA> <fileB> shortest dependency path
+ *   graphweft report  [dir]                 full graph report (markdown)
  *
  * `dir` defaults to the current directory.
  */
-import { CodeGraphEngine } from './codegraphEngine';
+import { GraphweftEngine } from './graphweftEngine';
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
@@ -22,7 +22,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // First non-flag arg is an optional directory; default to cwd if it looks like a query/flag.
-  const engine = new CodeGraphEngine();
+  const engine = new GraphweftEngine();
 
   switch (command) {
     case 'index': {
@@ -33,14 +33,14 @@ async function main(argv: string[]): Promise<number> {
     }
     case 'search': {
       const { dir, args } = splitDirAndArgs(rest);
-      if (args.length === 0) return fail('search needs a query: codegraph search [dir] <query...>');
+      if (args.length === 0) return fail('search needs a query: graphweft search [dir] <query...>');
       await engine.indexDirectory(dir);
       process.stdout.write(`${JSON.stringify(engine.search(args.join(' ')), null, 2)}\n`);
       return 0;
     }
     case 'impact': {
       const { dir, args } = splitDirAndArgs(rest);
-      if (args.length === 0) return fail('impact needs a file: codegraph impact [dir] <file>');
+      if (args.length === 0) return fail('impact needs a file: graphweft impact [dir] <file>');
       await engine.indexDirectory(dir);
       const impacted = engine.impact(args[0]);
       process.stdout.write(`${JSON.stringify({ seed: args[0], impacted }, null, 2)}\n`);
@@ -48,7 +48,7 @@ async function main(argv: string[]): Promise<number> {
     }
     case 'path': {
       const { dir, args } = splitDirAndArgs(rest);
-      if (args.length < 2) return fail('path needs two files: codegraph path [dir] <a> <b>');
+      if (args.length < 2) return fail('path needs two files: graphweft path [dir] <a> <b>');
       await engine.indexDirectory(dir);
       process.stdout.write(`${JSON.stringify(engine.path(args[0], args[1]), null, 2)}\n`);
       return 0;
@@ -73,7 +73,7 @@ function splitDirAndArgs(rest: string[]): { dir: string; args: string[] } {
 }
 
 function fail(message: string): number {
-  process.stderr.write(`codegraph: ${message}\n`);
+  process.stderr.write(`graphweft: ${message}\n`);
   printUsage();
   return 1;
 }
@@ -82,11 +82,11 @@ function printUsage(): void {
   process.stderr.write(
     [
       'Usage:',
-      '  codegraph index   [dir]',
-      '  codegraph search  [dir] <query...>',
-      '  codegraph impact  [dir] <file>',
-      '  codegraph path    [dir] <fileA> <fileB>',
-      '  codegraph report  [dir]',
+      '  graphweft index   [dir]',
+      '  graphweft search  [dir] <query...>',
+      '  graphweft impact  [dir] <file>',
+      '  graphweft path    [dir] <fileA> <fileB>',
+      '  graphweft report  [dir]',
       '',
     ].join('\n'),
   );
@@ -95,6 +95,6 @@ function printUsage(): void {
 main(process.argv.slice(2))
   .then((code) => process.exit(code))
   .catch((error) => {
-    process.stderr.write(`codegraph: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`graphweft: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   });

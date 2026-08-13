@@ -16,7 +16,7 @@ type Node =
   | { kind: 'action'; command: string; label: string; description?: string; icon?: string }
   | { kind: 'empty'; label: string };
 
-export class CodeGraphTreeProvider implements vscode.TreeDataProvider<Node> {
+export class GraphweftTreeProvider implements vscode.TreeDataProvider<Node> {
   private readonly emitter = new vscode.EventEmitter<Node | undefined>();
   public readonly onDidChangeTreeData = this.emitter.event;
 
@@ -49,7 +49,7 @@ export class CodeGraphTreeProvider implements vscode.TreeDataProvider<Node> {
         const item = new vscode.TreeItem(element.path, vscode.TreeItemCollapsibleState.None);
         item.description = `${element.total} (in ${element.inDeg}, out ${element.outDeg})`;
         item.iconPath = new vscode.ThemeIcon('star-full');
-        item.command = { command: 'codegraph.revealFile', title: 'Open', arguments: [element.path] };
+        item.command = { command: 'graphweft.revealFile', title: 'Open', arguments: [element.path] };
         item.contextValue = 'godNode';
         return item;
       }
@@ -63,27 +63,27 @@ export class CodeGraphTreeProvider implements vscode.TreeDataProvider<Node> {
         const item = new vscode.TreeItem(element.path, vscode.TreeItemCollapsibleState.None);
         item.iconPath = vscode.ThemeIcon.File;
         item.resourceUri = workspaceUri(element.path);
-        item.command = { command: 'codegraph.revealFile', title: 'Open', arguments: [element.path] };
+        item.command = { command: 'graphweft.revealFile', title: 'Open', arguments: [element.path] };
         return item;
       }
       case 'question': {
         const item = new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.None);
         item.iconPath = new vscode.ThemeIcon('comment-discussion');
-        item.command = { command: 'codegraph.askSuggestedQuestion', title: 'Ask', arguments: [element.text] };
+        item.command = { command: 'graphweft.askSuggestedQuestion', title: 'Ask', arguments: [element.text] };
         return item;
       }
       case 'auditEntry': {
         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
         item.tooltip = element.tooltip;
         item.iconPath = new vscode.ThemeIcon('shield');
-        item.command = { command: 'codegraph.showPrivacyCenter', title: 'Open Privacy Center' };
+        item.command = { command: 'graphweft.showPrivacyCenter', title: 'Open Privacy Center' };
         return item;
       }
       case 'privacy': {
         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
         item.description = element.description;
         item.iconPath = new vscode.ThemeIcon(element.label.includes('local-only') ? 'lock' : 'shield');
-        item.command = { command: 'codegraph.showPrivacyCenter', title: 'Open Privacy Center' };
+        item.command = { command: 'graphweft.showPrivacyCenter', title: 'Open Privacy Center' };
         return item;
       }
       case 'action': {
@@ -168,12 +168,12 @@ export class CodeGraphTreeProvider implements vscode.TreeDataProvider<Node> {
 
   private actionChildren(): Node[] {
     return [
-      { kind: 'action', command: 'codegraph.showGraph', label: 'Open interactive graph', icon: 'graph' },
-      { kind: 'action', command: 'codegraph.showReport', label: 'Generate graph report', icon: 'preview' },
-      { kind: 'action', command: 'codegraph.showSavings', label: 'Token Savings Analysis', icon: 'graph-line' },
-      { kind: 'action', command: 'codegraph.buildIndex', label: 'Rebuild local index', icon: 'sync' },
-      { kind: 'action', command: 'codegraph.showPrivacyCenter', label: 'Privacy Center', icon: 'shield' },
-      { kind: 'action', command: 'codegraph.wipeIndex', label: 'Wipe local data', icon: 'trash' },
+      { kind: 'action', command: 'graphweft.showGraph', label: 'Open interactive graph', icon: 'graph' },
+      { kind: 'action', command: 'graphweft.showReport', label: 'Generate graph report', icon: 'preview' },
+      { kind: 'action', command: 'graphweft.showSavings', label: 'Token Savings Analysis', icon: 'graph-line' },
+      { kind: 'action', command: 'graphweft.buildIndex', label: 'Rebuild local index', icon: 'sync' },
+      { kind: 'action', command: 'graphweft.showPrivacyCenter', label: 'Privacy Center', icon: 'shield' },
+      { kind: 'action', command: 'graphweft.wipeIndex', label: 'Wipe local data', icon: 'trash' },
     ];
   }
 
@@ -204,7 +204,7 @@ export class CodeGraphTreeProvider implements vscode.TreeDataProvider<Node> {
         label: `Avg saved per call: ${summary.avgSavedTokensPerCall.toLocaleString()}`,
         description: `≈ $${summary.costAtPricePerMillionTokens(3).toFixed(4)} @ $3/M`,
       },
-      { kind: 'action', command: 'codegraph.showSavings', label: 'Open full analysis…', icon: 'graph-line' },
+      { kind: 'action', command: 'graphweft.showSavings', label: 'Open full analysis…', icon: 'graph-line' },
     ];
   }
 

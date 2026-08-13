@@ -1,9 +1,9 @@
-# CodeGraph — Algorithms & Token-Savings Methodology
+# Graphweft — Algorithms & Token-Savings Methodology
 
-This document explains **every algorithm** in CodeGraph (and where it lives), then **exactly how
+This document explains **every algorithm** in Graphweft (and where it lives), then **exactly how
 the token-savings number is computed** and what it does and does not mean.
 
-CodeGraph is a pipeline:
+Graphweft is a pipeline:
 
 ```
 index → build graph → analyze → retrieve & rank → compress (budget) → measure
@@ -49,7 +49,7 @@ updated in place, preserving node positions).
 |---|---|---|
 | Multi-strategy import resolution | `src/graph/graphAlgorithms.ts` → `resolveImports` / `resolveSpecifier` | For each import, tries in order: **(1)** relative-path candidates (`./x` + ~25 extensions + index files), **(2)** namespace/package match against declaring files, **(3)** path-suffix match (`net/socket.h`, dotted module paths), **(4)** unique base-name fallback. Ambiguous names are intentionally left unlinked. |
 | Lookup-index build | `buildFileIndex` | Builds `byPath`, `byModule` (namespace → files), and `byBaseName` maps so resolution is O(1) per candidate. |
-| Symbol-level reference edges | `buildSymbolReferences` / `symbolUsageCounts` | Resolves **named imports** against the target file's *exported symbols*, producing symbol-granular edges (`controller.ts → service.ts#UserService`). Powers the report's "Hot Symbols" table and the MCP `codegraph_symbol_refs` tool. Wildcard/default imports stay file-level. |
+| Symbol-level reference edges | `buildSymbolReferences` / `symbolUsageCounts` | Resolves **named imports** against the target file's *exported symbols*, producing symbol-granular edges (`controller.ts → service.ts#UserService`). Powers the report's "Hot Symbols" table and the MCP `graphweft_symbol_refs` tool. Wildcard/default imports stay file-level. |
 
 ### 3. Graph analytics
 
@@ -132,8 +132,8 @@ sees collaborators), and `mergeRankedFiles` sums scores for files matched by mul
 | Component | File | Details |
 |---|---|---|
 | SQLite store (schema v3) | `src/graph/sqliteGraphStore.ts` | sql.js (WASM SQLite) with `files`/`symbols`/`imports` tables + `content_hash`. `upsert` patches only changed files; edges recompute globally from the merged in-memory set (resolution is global; no re-parsing). Writes are **debounced 500 ms** (sql.js exports the whole DB per persist); `dispose()` flushes on deactivation. |
-| Headless engine | `src/node/codegraphEngine.ts` + `src/node/nodeScanner.ts` | The same indexers/retriever/algorithms without VS Code — drives the CLI and the MCP server. |
-| MCP server | `src/mcp/server.ts` | Zero-dependency **JSON-RPC 2.0 over stdio** (newline-delimited) exposing `codegraph_context`, `codegraph_impact`, `codegraph_path`, `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats` to any MCP client (Copilot agent mode, Claude, Cursor…). Freshness via recursive `fs.watch` + dirty-set incremental reindex on each tool call. |
+| Headless engine | `src/node/graphweftEngine.ts` + `src/node/nodeScanner.ts` | The same indexers/retriever/algorithms without VS Code — drives the CLI and the MCP server. |
+| MCP server | `src/mcp/server.ts` | Zero-dependency **JSON-RPC 2.0 over stdio** (newline-delimited) exposing `graphweft_context`, `graphweft_impact`, `graphweft_path`, `graphweft_hotspots`, `graphweft_symbol_refs`, `graphweft_communities`, `graphweft_stats` to any MCP client (Copilot agent mode, Claude, Cursor…). Freshness via recursive `fs.watch` + dirty-set incremental reindex on each tool call. |
 
 ---
 
@@ -141,10 +141,10 @@ sees collaborators), and `mergeRankedFiles` sums scores for files matched by mul
 
 The claim is precise and is **not** "vs GitHub Copilot." It is:
 
-> **How many tokens did CodeGraph's compact, ranked context use, versus a naive RAG that dumps
+> **How many tokens did Graphweft's compact, ranked context use, versus a naive RAG that dumps
 > the full text of the same relevant files?**
 
-### Step 1 — What CodeGraph actually sends (numerator)
+### Step 1 — What Graphweft actually sends (numerator)
 
 The retriever picks relevant files/symbols; the **budgeter** admits only what fits (~6000 tokens),
 and what's admitted is mostly references and signatures, not full bodies:

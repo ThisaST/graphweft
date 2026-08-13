@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { buildFileGraph } from '../graph/graphAlgorithms';
-import { CodeGraphFile } from '../graph/graphTypes';
+import { GraphweftFile } from '../graph/graphTypes';
 import { extractModuleDeclaration } from '../indexer/moduleDeclarations';
 import { extractMultiLangImports } from '../indexer/multiLangImports';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
@@ -11,7 +11,7 @@ interface FileOpts {
   module?: string;
 }
 
-function f(path: string, opts: FileOpts = {}): CodeGraphFile {
+function f(path: string, opts: FileOpts = {}): GraphweftFile {
   return {
     uri: `file:///${path}`,
     path,
@@ -22,7 +22,7 @@ function f(path: string, opts: FileOpts = {}): CodeGraphFile {
   };
 }
 
-function edge(files: CodeGraphFile[], from: string, to: string): boolean {
+function edge(files: GraphweftFile[], from: string, to: string): boolean {
   return buildFileGraph(files).adjacency.get(from)?.has(to) ?? false;
 }
 

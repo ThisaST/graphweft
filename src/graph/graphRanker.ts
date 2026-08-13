@@ -1,4 +1,4 @@
-import { CodeGraphFile, RankedFileResult } from './graphTypes';
+import { GraphweftFile, RankedFileResult } from './graphTypes';
 
 export interface GraphRetrievalHints {
   activeFilePath?: string;
@@ -52,7 +52,7 @@ export function applyContextualFileBoosts(results: RankedFileResult[], hints: Gr
   });
 }
 
-export function createHintMatches(files: CodeGraphFile[], hints: GraphRetrievalHints): RankedFileResult[] {
+export function createHintMatches(files: GraphweftFile[], hints: GraphRetrievalHints): RankedFileResult[] {
   const hintedPaths = new Set<string>();
 
   if (hints.activeFilePath) {

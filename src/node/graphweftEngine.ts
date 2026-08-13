@@ -1,12 +1,12 @@
 /**
- * Host-agnostic CodeGraph engine. Wraps the pure graph/indexer/retriever modules behind a small
+ * Host-agnostic Graphweft engine. Wraps the pure graph/indexer/retriever modules behind a small
  * API that any host (CLI, MCP server, future tools) can drive without VS Code. Holds the index
  * in memory; a host can persist `getFiles()` if it wants durability.
  */
 import { buildFileGraph, impactSet, shortestPath, PathResult } from '../graph/graphAlgorithms';
 import { GraphRetriever } from '../graph/graphRetriever';
 import { InMemoryGraphStore } from '../graph/inMemoryGraphStore';
-import { CodeGraphFile } from '../graph/graphTypes';
+import { GraphweftFile } from '../graph/graphTypes';
 import { buildGraphReport, renderGraphReportMarkdown } from '../report/graphReport';
 import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
@@ -33,7 +33,7 @@ export interface SearchResult {
   relatedTests: string[];
 }
 
-export class CodeGraphEngine {
+export class GraphweftEngine {
   private readonly store = new InMemoryGraphStore();
 
   /** Build (or rebuild) the index from a directory on disk. */
@@ -53,7 +53,7 @@ export class CodeGraphEngine {
     return this.store.hasIndex();
   }
 
-  public getFiles(): CodeGraphFile[] {
+  public getFiles(): GraphweftFile[] {
     return this.store.getFiles();
   }
 
@@ -101,7 +101,7 @@ export class CodeGraphEngine {
     return paths.find((p) => p.toLowerCase().includes(lower));
   }
 
-  private edgeCount(files: CodeGraphFile[]): number {
+  private edgeCount(files: GraphweftFile[]): number {
     let count = 0;
     for (const targets of buildFileGraph(files).adjacency.values()) count += targets.size;
     return count;

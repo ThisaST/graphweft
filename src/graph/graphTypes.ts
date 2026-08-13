@@ -36,7 +36,7 @@ export interface CodeSymbol {
   tags: string[];
 }
 
-export interface CodeGraphFile {
+export interface GraphweftFile {
   uri: string;
   path: string;
   imports: ImportReference[];
@@ -56,12 +56,12 @@ export interface CodeGraphFile {
 }
 
 export interface IndexedWorkspace {
-  files: CodeGraphFile[];
+  files: GraphweftFile[];
   indexedAt: Date;
 }
 
 export interface RankedFileResult {
-  file: CodeGraphFile;
+  file: GraphweftFile;
   score: number;
   reasons: string[];
 }

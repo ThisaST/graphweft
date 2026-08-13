@@ -1,6 +1,6 @@
-# Using CodeGraph with external AI tools
+# Using Graphweft with external AI tools
 
-CodeGraph runs **headlessly** — no VS Code, no model calls, fully local. Two integration
+Graphweft runs **headlessly** — no VS Code, no model calls, fully local. Two integration
 surfaces, both wrapping the same engine:
 
 1. **MCP server** (recommended) — `out/mcp/server.js`, a zero-dependency JSON-RPC 2.0
@@ -21,7 +21,7 @@ retrieval on this repo).
 After building (`pnpm run compile`):
 
 ```
-node /abs/path/to/codegraph/out/mcp/server.js /abs/path/to/your/project
+node /abs/path/to/graphweft/out/mcp/server.js /abs/path/to/your/project
 ```
 
 - **Transport**: newline-delimited JSON-RPC 2.0 over stdio (no HTTP, no network).
@@ -34,13 +34,13 @@ node /abs/path/to/codegraph/out/mcp/server.js /abs/path/to/your/project
 
 | Tool | What it returns |
 |---|---|
-| `codegraph_context` | Ranked, token-budgeted context pack for a task (files + symbols + dependency flow) |
-| `codegraph_impact` | Files transitively affected if a given file changes |
-| `codegraph_path` | Shortest dependency path between two files |
-| `codegraph_hotspots` | God nodes / high-centrality files |
-| `codegraph_symbol_refs` | Most-referenced symbols and where they're used |
-| `codegraph_communities` | Louvain module clusters |
-| `codegraph_stats` | Index size (files / symbols / edges) |
+| `graphweft_context` | Ranked, token-budgeted context pack for a task (files + symbols + dependency flow) |
+| `graphweft_impact` | Files transitively affected if a given file changes |
+| `graphweft_path` | Shortest dependency path between two files |
+| `graphweft_hotspots` | God nodes / high-centrality files |
+| `graphweft_symbol_refs` | Most-referenced symbols and where they're used |
+| `graphweft_communities` | Louvain module clusters |
+| `graphweft_stats` | Index size (files / symbols / edges) |
 
 ---
 
@@ -52,10 +52,10 @@ Register per-session or persistently in `~/.copilot/mcp-config.json`:
 // ~/.copilot/mcp-config.json
 {
   "mcpServers": {
-    "codegraph": {
+    "graphweft": {
       "type": "local",
       "command": "node",
-      "args": ["/abs/path/to/codegraph/out/mcp/server.js", "/abs/path/to/your/project"],
+      "args": ["/abs/path/to/graphweft/out/mcp/server.js", "/abs/path/to/your/project"],
       "tools": ["*"]
     }
   }
@@ -65,19 +65,19 @@ Register per-session or persistently in `~/.copilot/mcp-config.json`:
 One-shot (no config file):
 
 ```powershell
-copilot -p "Call codegraph_stats and repeat its output" `
-  --additional-mcp-config '{"mcpServers":{"codegraph":{"type":"local","command":"node","args":["<abs>/out/mcp/server.js","<abs-root>"],"tools":["*"]}}}' `
-  --allow-tool 'codegraph'
+copilot -p "Call graphweft_stats and repeat its output" `
+  --additional-mcp-config '{"mcpServers":{"graphweft":{"type":"local","command":"node","args":["<abs>/out/mcp/server.js","<abs-root>"],"tools":["*"]}}}' `
+  --allow-tool 'graphweft'
 ```
 
-*Verified:* the model called `codegraph_stats` live and returned
+*Verified:* the model called `graphweft_stats` live and returned
 `Indexed 94 files, 626 symbols, 217 import edges.`
 
 ## Claude Code ✅ verified (transport handshake)
 
 ```bash
-claude mcp add codegraph -- node /abs/path/to/codegraph/out/mcp/server.js /abs/path/to/your/project
-claude mcp list       # → codegraph: … - ✓ Connected
+claude mcp add graphweft -- node /abs/path/to/graphweft/out/mcp/server.js /abs/path/to/your/project
+claude mcp list       # → graphweft: … - ✓ Connected
 ```
 
 `claude mcp list` performs a real handshake (spawn + `initialize` + capability exchange) —
@@ -87,16 +87,16 @@ verified `✓ Connected` against Claude Code 2.1.x. Project-scoped alternative: 
 ```json
 {
   "mcpServers": {
-    "codegraph": {
+    "graphweft": {
       "command": "node",
-      "args": ["/abs/path/to/codegraph/out/mcp/server.js", "."]
+      "args": ["/abs/path/to/graphweft/out/mcp/server.js", "."]
     }
   }
 }
 ```
 
-Tool names appear to the model as `mcp__codegraph__codegraph_context` etc. Headless use:
-`claude -p --allowedTools "mcp__codegraph__codegraph_context" "your prompt"`.
+Tool names appear to the model as `mcp__graphweft__graphweft_context` etc. Headless use:
+`claude -p --allowedTools "mcp__graphweft__graphweft_context" "your prompt"`.
 
 ## VS Code — Copilot agent mode
 
@@ -105,7 +105,7 @@ Tool names appear to the model as `mcp__codegraph__codegraph_context` etc. Headl
 ```json
 {
   "servers": {
-    "codegraph": {
+    "graphweft": {
       "type": "stdio",
       "command": "node",
       "args": ["${workspaceFolder}/out/mcp/server.js", "${workspaceFolder}"]
@@ -115,8 +115,8 @@ Tool names appear to the model as `mcp__codegraph__codegraph_context` etc. Headl
 ```
 
 This repo ships that file, so opening it in VS Code with Copilot agent mode picks the
-server up automatically (Chat → Tools → codegraph). Inside VS Code you also get the richer
-`@codegraph` chat participant — the MCP route is for making the graph available to *agent
+server up automatically (Chat → Tools → graphweft). Inside VS Code you also get the richer
+`@graphweft` chat participant — the MCP route is for making the graph available to *agent
 mode* and other MCP hosts.
 
 ## OpenAI Codex CLI
@@ -124,9 +124,9 @@ mode* and other MCP hosts.
 `~/.codex/config.toml`:
 
 ```toml
-[mcp_servers.codegraph]
+[mcp_servers.graphweft]
 command = "node"
-args = ["/abs/path/to/codegraph/out/mcp/server.js", "/abs/path/to/your/project"]
+args = ["/abs/path/to/graphweft/out/mcp/server.js", "/abs/path/to/your/project"]
 ```
 
 Codex speaks MCP protocol `2025-03-26`; the handshake is covered by the simulated client
@@ -139,9 +139,9 @@ test (`src/test/mcpClients.test.ts`). Not live-verified here (CLI not installed)
 ```json
 {
   "mcpServers": {
-    "codegraph": {
+    "graphweft": {
       "command": "node",
-      "args": ["/abs/path/to/codegraph/out/mcp/server.js", "/abs/path/to/your/project"]
+      "args": ["/abs/path/to/graphweft/out/mcp/server.js", "/abs/path/to/your/project"]
     }
   }
 }
@@ -152,8 +152,8 @@ test (`src/test/mcpClients.test.ts`). Not live-verified here (CLI not installed)
 Ollama's CLI has no tool-calling loop, so inject graph context into the prompt:
 
 ```bash
-codegraph search . "where is auth handled" | ollama run qwen2.5-coder "Using this JSON \
-context, explain where auth is handled: $(codegraph search . 'where is auth handled')"
+graphweft search . "where is auth handled" | ollama run qwen2.5-coder "Using this JSON \
+context, explain where auth is handled: $(graphweft search . 'where is auth handled')"
 ```
 
 Or with any Ollama-backed agent framework that supports MCP (e.g. via `mcphost`), point it
@@ -164,20 +164,20 @@ at the same stdio server.
 ## The CLI (fallback for non-MCP tools)
 
 ```bash
-codegraph index   [dir]                  # build the graph, print {files, symbols, edges}
-codegraph search  [dir] <query...>       # ranked, structure-aware context for a query (JSON)
-codegraph impact  [dir] <file>           # files that transitively depend on <file>
-codegraph path    [dir] <fileA> <fileB>  # shortest dependency path
-codegraph report  [dir]                  # full graph report (god nodes, communities) as markdown
+graphweft index   [dir]                  # build the graph, print {files, symbols, edges}
+graphweft search  [dir] <query...>       # ranked, structure-aware context for a query (JSON)
+graphweft impact  [dir] <file>           # files that transitively depend on <file>
+graphweft path    [dir] <fileA> <fileB>  # shortest dependency path
+graphweft report  [dir]                  # full graph report (god nodes, communities) as markdown
 ```
 
-Install globally for the bare `codegraph` command: `npm install -g .` from this repo.
+Install globally for the bare `graphweft` command: `npm install -g .` from this repo.
 
 For shell-capable agents without MCP, document it in the repo's agent instructions
 (`AGENTS.md`, `.github/copilot-instructions.md`, or a Claude slash command):
 
 ```md
-Before broad searches, run `codegraph search . "<what you're looking for>"` to get the
+Before broad searches, run `graphweft search . "<what you're looking for>"` to get the
 ranked, dependency-aware set of relevant files, then read only those.
 ```
 
@@ -187,7 +187,7 @@ ranked, dependency-aware set of relevant files, then read only those.
 
 | Client | Protocol | Status |
 |---|---|---|
-| GitHub Copilot CLI | 2025-03-26 | ✅ Live end-to-end: model invoked `codegraph_stats` through the server |
+| GitHub Copilot CLI | 2025-03-26 | ✅ Live end-to-end: model invoked `graphweft_stats` through the server |
 | Claude Code 2.1.x | 2025-06-18 | ✅ Live handshake: `claude mcp list` → `✓ Connected` |
 | VS Code Copilot agent mode | 2025-03-26 | ✅ Simulated wire-exact handshake test |
 | OpenAI Codex CLI | 2025-03-26 | ✅ Simulated wire-exact handshake test |

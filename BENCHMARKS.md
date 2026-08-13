@@ -1,15 +1,15 @@
-# CodeGraph Token-Savings Benchmark
+# Graphweft Token-Savings Benchmark
 
 _Generated 2026-08-12T18:24:30.811Z · tokenizer: **o200k_base (GPT-4o / o-series)** · budget: 6000 tokens_
 
-Indexed **91 files**, 620 symbols, 217 edges from `C:\Users\dtp\Development\ElementLogic\copilot-worktrees\codegraph-copilet-chat-main\thisara-sturdy-doodle`.
+Indexed **91 files**, 620 symbols, 217 edges from `C:\Users\dtp\Development\ElementLogic\copilot-worktrees\graphweft-copilet-chat-main\thisara-sturdy-doodle`.
 
-**Method.** For each task: (A) the exact compact context package the MCP `codegraph_context` tool returns;
-(B) *naive RAG* — the full text of the same files CodeGraph ranked relevant; (C) *grep-style* — the full text
+**Method.** For each task: (A) the exact compact context package the MCP `graphweft_context` tool returns;
+(B) *naive RAG* — the full text of the same files Graphweft ranked relevant; (C) *grep-style* — the full text
 of every file lexically matching the query keywords (what an unranked agent reads). Token counts are real BPE
 counts, not estimates.
 
-| Task | CodeGraph | Naive RAG | Grep-style | vs naive | vs grep |
+| Task | Graphweft | Naive RAG | Grep-style | vs naive | vs grep |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | explain how the login flow works | 2,724 | 29,087 (16f) | 17,772 (10f) | **90.6%** | **84.7%** |
 | add a new slash command to the chat participant | 3,614 | 31,851 (16f) | 51,861 (21f) | **88.7%** | **93%** |

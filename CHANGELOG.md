@@ -1,8 +1,26 @@
 # Changelog
 
-All notable changes to **Codemap — Local Code Graph** are documented here.
+All notable changes to **Graphweft** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.0] — 2026-08-13
+
+### Changed
+- **Project renamed to Graphweft.** The extension formerly known as CodeGraph / Codemap — Local
+  Code Graph is now **Graphweft**. This is a comprehensive rename:
+  - npm/extension package name: `codemap-graph` → `graphweft`.
+  - Chat participant: `@codegraph` → `@graphweft` (id `graphweft.chat`).
+  - Command IDs: `codegraph.*` → `graphweft.*`.
+  - Settings namespace: `codegraph.*` → `graphweft.*`.
+  - MCP server tools: `codegraph_context`, `codegraph_impact`, `codegraph_path`,
+    `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats`
+    → `graphweft_*` equivalents.
+  - CLI bin: `codegraph` → `graphweft`.
+  - Public API surface (e.g. `CodeGraphEngine` → `GraphweftEngine`) and storage keys renamed
+    to match.
+
+  Historical changelog entries below retain the old names for accuracy.
 
 ## [0.7.0] — 2026-08-12
 

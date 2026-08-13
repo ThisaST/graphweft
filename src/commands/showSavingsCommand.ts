@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { AuditLog } from '../privacy/auditLog';
 import { renderSavingsMarkdown, summarizeSavings } from '../privacy/tokenSavingsAnalyzer';
 
-export const showSavingsCommandId = 'codegraph.showSavings';
+export const showSavingsCommandId = 'graphweft.showSavings';
 
 export function registerShowSavingsCommand(audit: AuditLog): vscode.Disposable {
   return vscode.commands.registerCommand(showSavingsCommandId, async () => {

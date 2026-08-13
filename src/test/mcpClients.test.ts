@@ -77,7 +77,7 @@ function connect(child: ChildProcess) {
 }
 
 async function runTests(): Promise<void> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-mcp-clients-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'graphweft-mcp-clients-'));
   await fs.mkdir(path.join(root, 'src'), { recursive: true });
   await fs.writeFile(
     path.join(root, 'src', 'auth.service.ts'),
@@ -116,7 +116,7 @@ async function runTests(): Promise<void> {
       assert.ok(tools.every((t) => t.inputSchema !== undefined), `${client.name}: every tool has an inputSchema`);
 
       const call = await request('tools/call', {
-        name: 'codegraph_impact',
+        name: 'graphweft_impact',
         arguments: { path: 'src/auth.service.ts' },
       });
       assert.strictEqual(call.error, undefined, `${client.name}: tools/call succeeds`);
@@ -129,7 +129,7 @@ async function runTests(): Promise<void> {
       assert.ok(unknown.error, `${client.name}: unknown method yields JSON-RPC error`);
 
       // …and the server must still work afterwards.
-      const stats = await request('tools/call', { name: 'codegraph_stats', arguments: {} });
+      const stats = await request('tools/call', { name: 'graphweft_stats', arguments: {} });
       assert.ok((stats.result?.content as Array<{ text: string }>)[0].text.includes('2 files'), `${client.name}: server alive after unknown method`);
     } finally {
       child.kill();

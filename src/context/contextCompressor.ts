@@ -1,7 +1,7 @@
 import { GitDiffContext } from '../git/gitDiffProvider';
 import { RetrievalResult } from '../graph/graphTypes';
 import { ContextBudgeter } from './contextBudgeter';
-import { CodeGraphContextPackage, ConfidenceLevel } from './contextPackage';
+import { GraphweftContextPackage, ConfidenceLevel } from './contextPackage';
 import { TaskType } from './taskClassifier';
 
 const defaultSnippetLimit = 3;
@@ -15,9 +15,9 @@ export interface ContextCompressionOptions {
   indexingError?: string;
 }
 
-export function buildCodeGraphContextPackage(options: ContextCompressionOptions): CodeGraphContextPackage {
+export function buildGraphweftContextPackage(options: ContextCompressionOptions): GraphweftContextPackage {
   const budgeter = new ContextBudgeter(options.maxTokens);
-  const contextPackage: CodeGraphContextPackage = {
+  const contextPackage: GraphweftContextPackage = {
     task: options.task,
     taskType: options.taskType,
     confidence: calculateConfidence(options),
@@ -99,7 +99,7 @@ export function buildCodeGraphContextPackage(options: ContextCompressionOptions)
 }
 
 function addSnippet(
-  contextPackage: CodeGraphContextPackage,
+  contextPackage: GraphweftContextPackage,
   budgeter: ContextBudgeter,
   snippet: { filePath: string; symbolName: string; code: string },
 ): void {

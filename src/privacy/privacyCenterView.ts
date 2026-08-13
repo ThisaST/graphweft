@@ -22,8 +22,8 @@ export class PrivacyCenterView {
     }
 
     this.panel = vscode.window.createWebviewPanel(
-      'codegraph.privacyCenter',
-      'CodeGraph Privacy Center',
+      'graphweft.privacyCenter',
+      'Graphweft Privacy Center',
       vscode.ViewColumn.Active,
       { enableScripts: true, retainContextWhenHidden: true },
     );
@@ -40,7 +40,7 @@ export class PrivacyCenterView {
         this.refresh();
       } else if (msg?.type === 'clearLog') {
         const ok = await vscode.window.showWarningMessage(
-          'Clear the entire CodeGraph audit log? This cannot be undone.',
+          'Clear the entire Graphweft audit log? This cannot be undone.',
           { modal: true },
           'Clear log',
         );
@@ -95,7 +95,7 @@ export class PrivacyCenterView {
             ? `<div class="hl">Best call: saved <strong>${savings.bestSavingsRequest.savedTokens.toLocaleString()}</strong> tokens (${savings.bestSavingsRequest.savingsPercent.toFixed(1)}%) on <em>${escapeHtml(truncate(savings.bestSavingsRequest.task, 80))}</em></div>`
             : '';
           const worst = savings.worstCaseRequest
-            ? `<div class="hl">Most expensive baseline: <em>${escapeHtml(truncate(savings.worstCaseRequest.task, 80))}</em> — naive would have been ${savings.worstCaseRequest.baselineTokens.toLocaleString()} tokens, CodeGraph sent ${savings.worstCaseRequest.actualTokens.toLocaleString()}.</div>`
+            ? `<div class="hl">Most expensive baseline: <em>${escapeHtml(truncate(savings.worstCaseRequest.task, 80))}</em> — naive would have been ${savings.worstCaseRequest.baselineTokens.toLocaleString()} tokens, Graphweft sent ${savings.worstCaseRequest.actualTokens.toLocaleString()}.</div>`
             : '';
           return `
             <div class="savings">
@@ -117,7 +117,7 @@ export class PrivacyCenterView {
         })();
 
     const rows = entries.length === 0
-      ? '<tr><td colspan="6" class="empty">No model requests yet. CodeGraph has not sent any data.</td></tr>'
+      ? '<tr><td colspan="6" class="empty">No model requests yet. Graphweft has not sent any data.</td></tr>'
       : entries
           .map((e) => {
             const files = e.filesIncluded.slice(0, 3).join(', ') + (e.filesIncluded.length > 3 ? ` +${e.filesIncluded.length - 3}` : '');
@@ -255,14 +255,14 @@ export class PrivacyCenterView {
   <div class="brand">
     <span class="logo">🛡️</span>
     <div>
-      <h1>CodeGraph Privacy Center</h1>
+      <h1>Graphweft Privacy Center</h1>
       <p class="tagline">Local-first · every model call is logged below</p>
     </div>
   </div>
   <span class="mode-pill mode-${escapeHtml(state.mode)}">${escapeHtml(state.mode)}</span>
 </header>
 <div class="guarantee">
-  <strong>Local-first guarantee:</strong> CodeGraph indexes and stores everything on this machine. The extension itself makes <em>zero</em> outbound HTTP calls. Prompts are sent only via the Copilot language-model API selected by you, and every send is logged below. Toggle <em>local-only</em> to disable model calls entirely.
+  <strong>Local-first guarantee:</strong> Graphweft indexes and stores everything on this machine. The extension itself makes <em>zero</em> outbound HTTP calls. Prompts are sent only via the Copilot language-model API selected by you, and every send is logged below. Toggle <em>local-only</em> to disable model calls entirely.
 </div>
 <h2 class="section">Overview</h2>
 <div class="grid">

@@ -3,7 +3,7 @@ import { validateLocalEndpoint } from '../semantic/embeddingProvider';
 import { buildSemanticDoc, hashDoc } from '../semantic/semanticDoc';
 import { decodeVector, encodeVector, VectorIndex } from '../semantic/vectorIndex';
 import { createHintMatches, applyContextualFileBoosts } from '../graph/graphRanker';
-import { CodeGraphFile } from '../graph/graphTypes';
+import { GraphweftFile } from '../graph/graphTypes';
 
 // --- endpoint validation (the privacy gate) ---
 
@@ -59,7 +59,7 @@ import { CodeGraphFile } from '../graph/graphTypes';
 
 // --- semantic doc building (graph-aware chunking) ---
 
-function file(partial: Partial<CodeGraphFile> & { path: string }): CodeGraphFile {
+function file(partial: Partial<GraphweftFile> & { path: string }): GraphweftFile {
   return {
     uri: `file:///${partial.path}`,
     path: partial.path,

@@ -1,5 +1,5 @@
 /**
- * CodeGraph MCP server — exposes the code graph to any Model Context Protocol client
+ * Graphweft MCP server — exposes the code graph to any Model Context Protocol client
  * (Copilot agent mode, Claude Desktop/Code, Cursor, …) over stdio, so agents outside
  * the VS Code extension can query the same graph: task-scoped context packages,
  * impact sets, dependency paths, hotspots, communities.
@@ -22,13 +22,13 @@ import { isSupportedSourcePath } from '../utils/fileFilters';
 import { readSourceFile, scanDirectory, toRelativePath } from '../node/nodeScanner';
 
 const protocolVersions = new Set(['2024-11-05', '2025-03-26', '2025-06-18']);
-const serverInfo = { name: 'codegraph-mcp', version: '0.7.0' };
+const serverInfo = { name: 'graphweft-mcp', version: '0.7.0' };
 
 // ---------------------------------------------------------------------------------------
 // Headless engine: full scan once, then fs.watch-driven incremental refresh on demand.
 // ---------------------------------------------------------------------------------------
 
-class HeadlessCodeGraph {
+class HeadlessGraphweft {
   private readonly store = new InMemoryGraphStore();
   private built = false;
   private readonly dirty = new Set<string>();
@@ -100,12 +100,12 @@ interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<string>;
 }
 
-function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
+function buildTools(engine: HeadlessGraphweft): ToolDefinition[] {
   const files = () => engine.getStore().getFiles();
 
   return [
     {
-      name: 'codegraph_context',
+      name: 'graphweft_context',
       description:
         'Build a compressed, task-scoped context package (ranked files, symbols, dependency flow, related tests) from the code graph. Use this before working on a task to know which files matter.',
       inputSchema: {
@@ -124,7 +124,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_impact',
+      name: 'graphweft_impact',
       description:
         'List files that (transitively) import a given file — the blast radius of changing it. Paths are workspace-relative.',
       inputSchema: {
@@ -144,7 +144,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_path',
+      name: 'graphweft_path',
       description: 'Find the shortest import-dependency path between two files.',
       inputSchema: {
         type: 'object',
@@ -163,7 +163,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_hotspots',
+      name: 'graphweft_hotspots',
       description:
         'List the most connected files (highest import degree) — likely architectural hubs and risky god nodes.',
       inputSchema: {
@@ -180,7 +180,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_communities',
+      name: 'graphweft_communities',
       description: 'Group files into architectural clusters (Louvain community detection on the import graph).',
       inputSchema: { type: 'object', properties: {} },
       run: async () => {
@@ -200,7 +200,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_symbol_refs',
+      name: 'graphweft_symbol_refs',
       description:
         'Symbol-level references: which files import a given symbol (by named import), or — without a symbol — the most-imported symbols in the codebase.',
       inputSchema: {
@@ -232,7 +232,7 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       },
     },
     {
-      name: 'codegraph_stats',
+      name: 'graphweft_stats',
       description: 'Summary statistics for the code graph index (file, symbol and edge counts).',
       inputSchema: { type: 'object', properties: {} },
       run: async () => {
@@ -279,7 +279,7 @@ function replyError(id: number | string | null, code: number, message: string): 
 }
 
 export function startServer(root: string): void {
-  const engine = new HeadlessCodeGraph(root);
+  const engine = new HeadlessGraphweft(root);
   engine.startWatching();
   const tools = buildTools(engine);
   const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
@@ -367,6 +367,6 @@ export function startServer(root: string): void {
 
 if (require.main === module) {
   const root = path.resolve(process.argv[2] ?? process.cwd());
-  process.stderr.write(`codegraph-mcp serving ${root}\n`);
+  process.stderr.write(`graphweft-mcp serving ${root}\n`);
   startServer(root);
 }

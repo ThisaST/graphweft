@@ -9,7 +9,7 @@ export interface PrivacyState {
   lastRequestAt?: Date;
 }
 
-const configRoot = 'codegraph';
+const configRoot = 'graphweft';
 
 export class PrivacyManager {
   private readonly stateEmitter = new vscode.EventEmitter<PrivacyState>();

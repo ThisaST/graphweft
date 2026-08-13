@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { registerCodeGraphParticipant } from './chat/codegraphParticipant';
-import { registerCodeGraphTools } from './chat/agentTools';
+import { registerGraphweftParticipant } from './chat/graphweftParticipant';
+import { registerGraphweftTools } from './chat/agentTools';
 import { registerBuildIndexCommand } from './commands/buildIndexCommand';
 import { registerBuildSemanticIndexCommand } from './commands/buildSemanticIndexCommand';
 import { SemanticIndexer } from './semantic/semanticIndexer';
@@ -18,7 +18,7 @@ import { PrivacyManager } from './privacy/privacyManager';
 import { registerPrivacyStatusBar } from './privacy/statusBar';
 import { ToolAuditLog } from './privacy/toolAuditLog';
 import { ModelPreferenceStore } from './privacy/modelPreferenceStore';
-import { CodeGraphTreeProvider } from './views/codeGraphTreeProvider';
+import { GraphweftTreeProvider } from './views/graphweftTreeProvider';
 import { registerAskSuggestedQuestionCommand, registerRevealFileCommand } from './views/revealFileCommand';
 import { GraphWebview } from './viz/graphWebview';
 
@@ -40,9 +40,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const privacyCenter = new PrivacyCenterView(context.extensionUri, audit, privacy);
   const graphView = new GraphWebview(context.extensionUri, graphStore);
-  const treeProvider = new CodeGraphTreeProvider(graphStore, privacy, audit);
+  const treeProvider = new GraphweftTreeProvider(graphStore, privacy, audit);
 
-  const treeView = vscode.window.createTreeView('codegraph.sidebar', {
+  const treeView = vscode.window.createTreeView('graphweft.sidebar', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
@@ -54,8 +54,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     { dispose: () => toolAudit.dispose() },
     { dispose: () => modelPrefs.dispose() },
     { dispose: () => privacyCenter.dispose() },
-    ...registerCodeGraphTools({ store: graphStore, privacy, toolAudit, indexer }),
-    registerCodeGraphParticipant({
+    ...registerGraphweftTools({ store: graphStore, privacy, toolAudit, indexer }),
+    registerGraphweftParticipant({
       store: graphStore,
       indexer,
       privacy,
@@ -75,7 +75,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerAskSuggestedQuestionCommand(),
     registerFileSystemWatcher(indexer),
     registerPrivacyStatusBar(privacy, audit),
-    vscode.commands.registerCommand('codegraph.refreshSidebar', () => treeProvider.refresh()),
+    vscode.commands.registerCommand('graphweft.refreshSidebar', () => treeProvider.refresh()),
   );
 
   // Live-update UI surfaces whenever the index changes (saves, agent writes, git ops).

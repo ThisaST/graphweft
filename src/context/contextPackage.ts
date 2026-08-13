@@ -2,7 +2,7 @@ import { TaskType } from './taskClassifier';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
-export type CodeGraphContextPackage = {
+export type GraphweftContextPackage = {
   task: string;
   taskType: TaskType;
   confidence: ConfidenceLevel;

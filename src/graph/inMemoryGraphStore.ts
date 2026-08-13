@@ -1,17 +1,17 @@
-import { CodeGraphFile, IndexedWorkspace } from './graphTypes';
+import { GraphweftFile, IndexedWorkspace } from './graphTypes';
 import { GraphStore } from './graphStore';
 
 export class InMemoryGraphStore implements GraphStore {
   private workspace?: IndexedWorkspace;
 
-  public async replace(files: CodeGraphFile[]): Promise<void> {
+  public async replace(files: GraphweftFile[]): Promise<void> {
     this.workspace = {
       files,
       indexedAt: new Date(),
     };
   }
 
-  public async upsert(files: CodeGraphFile[], removedPaths: string[] = []): Promise<void> {
+  public async upsert(files: GraphweftFile[], removedPaths: string[] = []): Promise<void> {
     const removed = new Set(removedPaths);
     const updated = new Map(files.map((file) => [file.path, file]));
     const kept = (this.workspace?.files ?? []).filter(
@@ -35,11 +35,11 @@ export class InMemoryGraphStore implements GraphStore {
     return this.workspace;
   }
 
-  public getFiles(): CodeGraphFile[] {
+  public getFiles(): GraphweftFile[] {
     return this.workspace?.files ?? [];
   }
 
-  public getFile(filePath: string): CodeGraphFile | undefined {
+  public getFile(filePath: string): GraphweftFile | undefined {
     return this.getFiles().find((file) => file.path === filePath);
   }
 }

@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { CodeGraphFile, CodeSymbol, CodeSymbolType, ImportReference, LineRange } from '../graph/graphTypes';
+import { GraphweftFile, CodeSymbol, CodeSymbolType, ImportReference, LineRange } from '../graph/graphTypes';
 import { WorkspaceSourceFile } from './sourceFile';
 
 const routeDecorators = new Set(['Get', 'Post', 'Put', 'Patch', 'Delete']);
@@ -7,7 +7,7 @@ const nestControllerDecorators = new Set(['Controller']);
 const nestServiceDecorators = new Set(['Injectable']);
 const nestModuleDecorators = new Set(['Module']);
 
-export function indexTypeScriptFile(file: WorkspaceSourceFile): CodeGraphFile {
+export function indexTypeScriptFile(file: WorkspaceSourceFile): GraphweftFile {
   const scriptKind = getScriptKind(file.workspaceRelativePath);
   const sourceFile = ts.createSourceFile(file.workspaceRelativePath, file.text, ts.ScriptTarget.Latest, true, scriptKind);
   const imports: ImportReference[] = [];

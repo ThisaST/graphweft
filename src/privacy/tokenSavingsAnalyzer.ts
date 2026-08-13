@@ -109,7 +109,7 @@ export function renderSavingsMarkdown(summary: SavingsSummary): string {
     return [
       '### Token Savings',
       '',
-      '_No completed model calls yet. Once `@codegraph` makes a request, this section will compare what CodeGraph actually sent vs. what a naive "dump the relevant files" RAG would have sent._',
+      '_No completed model calls yet. Once `@graphweft` makes a request, this section will compare what Graphweft actually sent vs. what a naive "dump the relevant files" RAG would have sent._',
     ].join('\n');
   }
 
@@ -151,7 +151,7 @@ export function renderSavingsMarkdown(summary: SavingsSummary): string {
     lines.push(`**Best single call:** saved ${summary.bestSavingsRequest.savedTokens.toLocaleString()} tokens (${summary.bestSavingsRequest.savingsPercent.toFixed(1)}%) on _"${truncate(summary.bestSavingsRequest.task, 80)}"_`);
   }
   if (summary.worstCaseRequest) {
-    lines.push(`**Most expensive baseline:** _"${truncate(summary.worstCaseRequest.task, 80)}"_ — would have been ${summary.worstCaseRequest.baselineTokens.toLocaleString()} tokens dumped; CodeGraph sent ${summary.worstCaseRequest.actualTokens.toLocaleString()}.`);
+    lines.push(`**Most expensive baseline:** _"${truncate(summary.worstCaseRequest.task, 80)}"_ — would have been ${summary.worstCaseRequest.baselineTokens.toLocaleString()} tokens dumped; Graphweft sent ${summary.worstCaseRequest.actualTokens.toLocaleString()}.`);
   }
 
   return lines.join('\n');

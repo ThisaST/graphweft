@@ -2,13 +2,13 @@ import * as vscode from 'vscode';
 import { GraphStore } from '../graph/graphStore';
 import { buildGraphReport, renderGraphReportMarkdown } from '../report/graphReport';
 
-export const showReportCommandId = 'codegraph.showReport';
+export const showReportCommandId = 'graphweft.showReport';
 
 export function registerShowReportCommand(store: GraphStore): vscode.Disposable {
   return vscode.commands.registerCommand(showReportCommandId, async () => {
     const files = store.getFiles();
     if (files.length === 0) {
-      vscode.window.showWarningMessage('CodeGraph: no local index yet. Run `CodeGraph: Build Local Index` first.');
+      vscode.window.showWarningMessage('Graphweft: no local index yet. Run `Graphweft: Build Local Index` first.');
       return;
     }
     const report = buildGraphReport(files);

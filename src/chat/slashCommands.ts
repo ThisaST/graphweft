@@ -49,11 +49,11 @@ export async function handleSlashLocally(parsed: ParsedSlash, ctx: SlashContext)
       return runReport(ctx);
     case 'viz':
     case 'graph':
-      await vscode.commands.executeCommand('codegraph.showGraph', parsed.rest || undefined);
+      await vscode.commands.executeCommand('graphweft.showGraph', parsed.rest || undefined);
       ctx.stream.markdown('Opened the interactive graph panel. Click any node to reveal it in the editor.');
       return true;
     case 'privacy':
-      await vscode.commands.executeCommand('codegraph.showPrivacyCenter');
+      await vscode.commands.executeCommand('graphweft.showPrivacyCenter');
       ctx.stream.markdown('Opened the Privacy Center. Toggle `local-only` there to disable all model calls.');
       return true;
     case 'savings':
@@ -91,7 +91,7 @@ export async function handleSlashLocally(parsed: ParsedSlash, ctx: SlashContext)
       return true;
     }
     case 'wipe':
-      await vscode.commands.executeCommand('codegraph.wipeIndex');
+      await vscode.commands.executeCommand('graphweft.wipeIndex');
       return true;
     case 'help':
       ctx.stream.markdown(helpText());
@@ -149,7 +149,7 @@ function runImpact(parsed: ParsedSlash, ctx: SlashContext): boolean {
 function runReport(ctx: SlashContext): boolean {
   const files = ctx.store.getFiles();
   if (files.length === 0) {
-    ctx.stream.markdown('No index yet. Run `CodeGraph: Build Local Index` first.');
+    ctx.stream.markdown('No index yet. Run `Graphweft: Build Local Index` first.');
     return true;
   }
   const report = buildGraphReport(files);
@@ -170,8 +170,8 @@ function truncate(value: string, max: number): string {
 
 export function helpText(): string {
   return [
-    '### CodeGraph commands',
-    '- `@codegraph <task>` — ask any code-aware question (uses local graph + Copilot model)',
+    '### Graphweft commands',
+    '- `@graphweft <task>` — ask any code-aware question (uses local graph + Copilot model)',
     '- `/path <a> <b>` — shortest import path between two files (local, no model call)',
     '- `/impact <file>` — files that transitively depend on this file (local)',
     '- `/godnodes` — most-connected files (local)',
@@ -179,7 +179,7 @@ export function helpText(): string {
     '- `/viz [query]` — open the interactive graph panel',
     '- `/privacy` — open the Privacy Center, switch privacy mode',
     '- `/models` — benchmark table of available models (capability, cost, speed, context) + your current pick',
-    '- `/savings` — token-savings analysis: how many tokens CodeGraph saved vs. a naive baseline',
+    '- `/savings` — token-savings analysis: how many tokens Graphweft saved vs. a naive baseline',
     '- `/audit` — last 10 model calls with byte counts',
     '- `/wipe` — wipe local index and/or audit log',
     '- `/help` — this list',

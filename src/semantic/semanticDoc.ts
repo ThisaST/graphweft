@@ -1,5 +1,5 @@
 /**
- * Builds the compact "document" that gets embedded for a file. This is CodeGraph's edge over
+ * Builds the compact "document" that gets embedded for a file. This is Graphweft's edge over
  * blind text chunking: instead of arbitrary slices of file content, we embed a structured
  * summary drawn from the graph index — path, namespace, symbol signatures, imports — so one
  * small vector captures what the file IS and how it CONNECTS. Typically ~300–800 chars/file,
@@ -8,12 +8,12 @@
  * Pure module (no vscode) for unit testing.
  */
 import * as crypto from 'crypto';
-import { CodeGraphFile } from '../graph/graphTypes';
+import { GraphweftFile } from '../graph/graphTypes';
 
 const MAX_SYMBOLS = 30;
 const MAX_IMPORTS = 20;
 
-export function buildSemanticDoc(file: CodeGraphFile): string {
+export function buildSemanticDoc(file: GraphweftFile): string {
   const lines: string[] = [`file: ${file.path}`];
 
   if (file.moduleName) {

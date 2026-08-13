@@ -1,14 +1,13 @@
 {
-  "name": "codemap-graph",
-  "displayName": "Codemap — Local Code Graph",
-  "description": "Local-first code graph for chat: a privacy-audited @codegraph chat participant, interactive graph viewer, multi-language indexing, and slash commands for path/impact/report. Works with GitHub Copilot Chat.",
-  "version": "0.7.0",
+  "name": "graphweft",
+  "displayName": "Graphweft",
+  "description": "Local-first code graph for chat: a privacy-audited @graphweft chat participant, interactive graph viewer, multi-language indexing, and slash commands for path/impact/report. Works with GitHub Copilot Chat.",
+  "version": "0.8.0",
   "publisher": "ThisaraPramu",
   "icon": "media/icon.png",
   "license": "MIT",
   "keywords": [
-    "codemap",
-    "code map",
+    "graphweft",
     "code graph",
     "copilot chat",
     "local-first",
@@ -18,10 +17,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/codegraph-copilot-chat.git"
+    "url": "https://github.com/your-org/graphweft-copilot-chat.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/codegraph-copilot-chat/issues"
+    "url": "https://github.com/your-org/graphweft-copilot-chat/issues"
   },
   "galleryBanner": {
     "color": "#0d1117",
@@ -46,61 +45,61 @@
     "Other"
   ],
   "activationEvents": [
-    "onChatParticipant:codegraph.chat",
-    "onView:codegraph.sidebar",
+    "onChatParticipant:graphweft.chat",
+    "onView:graphweft.sidebar",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "codegraph.buildIndex",
+        "command": "graphweft.buildIndex",
         "title": "Build Local Index",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.buildSemanticIndex",
+        "command": "graphweft.buildSemanticIndex",
         "title": "Build Semantic Index (local embeddings)",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.showGraph",
+        "command": "graphweft.showGraph",
         "title": "Open Interactive Graph",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.showReport",
+        "command": "graphweft.showReport",
         "title": "Generate Graph Report",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.showSavings",
+        "command": "graphweft.showSavings",
         "title": "Token Savings Analysis",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.showPrivacyCenter",
+        "command": "graphweft.showPrivacyCenter",
         "title": "Open Privacy Center",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.wipeIndex",
+        "command": "graphweft.wipeIndex",
         "title": "Wipe Local Data",
-        "category": "CodeGraph"
+        "category": "Graphweft"
       },
       {
-        "command": "codegraph.refreshSidebar",
+        "command": "graphweft.refreshSidebar",
         "title": "Refresh Sidebar",
-        "category": "CodeGraph",
+        "category": "Graphweft",
         "icon": "$(refresh)"
       }
     ],
     "chatParticipants": [
       {
-        "id": "codegraph.chat",
-        "name": "codegraph",
-        "fullName": "CodeGraph",
-        "description": "Ask CodeGraph to understand, fix, test, or review this workspace using a local code graph. Try /help for slash commands.",
+        "id": "graphweft.chat",
+        "name": "graphweft",
+        "fullName": "Graphweft",
+        "description": "Ask Graphweft to understand, fix, test, or review this workspace using a local code graph. Try /help for slash commands.",
         "isSticky": true,
         "commands": [
           {
@@ -125,7 +124,7 @@
           },
           {
             "name": "savings",
-            "description": "Token-savings analysis: how many tokens CodeGraph saved vs. a naive baseline"
+            "description": "Token-savings analysis: how many tokens Graphweft saved vs. a naive baseline"
           },
           {
             "name": "models",
@@ -145,22 +144,22 @@
           },
           {
             "name": "help",
-            "description": "List all CodeGraph commands"
+            "description": "List all Graphweft commands"
           }
         ]
       }
     ],
     "languageModelTools": [
       {
-        "name": "codegraph_runInTerminal",
+        "name": "graphweft_runInTerminal",
         "displayName": "Run in Terminal",
         "modelDescription": "Run a shell command in the workspace root and return its combined stdout/stderr and exit code. Use this to build, run tests, start the app, run git, or any command-line task. The user is asked to confirm before the command runs unless they enabled auto-approval.",
-        "userDescription": "Let CodeGraph run shell commands (with confirmation)",
+        "userDescription": "Let Graphweft run shell commands (with confirmation)",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "runInTerminal",
         "icon": "$(terminal)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "terminal",
           "execute"
         ],
@@ -186,15 +185,15 @@
         }
       },
       {
-        "name": "codegraph_readFile",
+        "name": "graphweft_readFile",
         "displayName": "Read File",
         "modelDescription": "Read the contents of a file in the workspace, optionally limited to a line range. Read-only; returns numbered lines.",
-        "userDescription": "Let CodeGraph read workspace files",
+        "userDescription": "Let Graphweft read workspace files",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "readFile",
         "icon": "$(file)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "read"
         ],
         "inputSchema": {
@@ -219,15 +218,15 @@
         }
       },
       {
-        "name": "codegraph_writeFile",
+        "name": "graphweft_writeFile",
         "displayName": "Write File",
         "modelDescription": "Create a new file or overwrite an existing one with the given full content. The user is asked to confirm unless they enabled auto-approval of edits.",
-        "userDescription": "Let CodeGraph create or overwrite files (with confirmation)",
+        "userDescription": "Let Graphweft create or overwrite files (with confirmation)",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "writeFile",
         "icon": "$(new-file)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "edit"
         ],
         "inputSchema": {
@@ -249,15 +248,15 @@
         }
       },
       {
-        "name": "codegraph_replaceInFile",
+        "name": "graphweft_replaceInFile",
         "displayName": "Replace in File",
         "modelDescription": "Replace an exact text snippet in an existing file. By default replaces the first occurrence; set all=true to replace every occurrence. Fails if the find text is not present. The user is asked to confirm unless they enabled auto-approval of edits.",
-        "userDescription": "Let CodeGraph apply targeted edits to files (with confirmation)",
+        "userDescription": "Let Graphweft apply targeted edits to files (with confirmation)",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "replaceInFile",
         "icon": "$(edit)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "edit"
         ],
         "inputSchema": {
@@ -288,15 +287,15 @@
         }
       },
       {
-        "name": "codegraph_listDirectory",
+        "name": "graphweft_listDirectory",
         "displayName": "List Directory",
         "modelDescription": "List the files and subfolders of a directory in the workspace. Read-only.",
-        "userDescription": "Let CodeGraph list workspace folders",
+        "userDescription": "Let Graphweft list workspace folders",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "listDirectory",
         "icon": "$(folder)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "read"
         ],
         "inputSchema": {
@@ -310,15 +309,15 @@
         }
       },
       {
-        "name": "codegraph_findFiles",
+        "name": "graphweft_findFiles",
         "displayName": "Find Files",
         "modelDescription": "Find files in the workspace by glob pattern (e.g. src/**/*.ts). Read-only; excludes node_modules, dist, build, and .git.",
-        "userDescription": "Let CodeGraph search for files by name",
+        "userDescription": "Let Graphweft search for files by name",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "findFiles",
         "icon": "$(search)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "read"
         ],
         "inputSchema": {
@@ -339,15 +338,15 @@
         }
       },
       {
-        "name": "codegraph_impact",
+        "name": "graphweft_impact",
         "displayName": "Impact Set",
         "modelDescription": "Using the local code graph, list every file that transitively imports the given file (its reverse-dependency / blast radius). Use before changing a widely-used file.",
-        "userDescription": "Let CodeGraph compute a file's impact set",
+        "userDescription": "Let Graphweft compute a file's impact set",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "impact",
         "icon": "$(references)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "graph"
         ],
         "inputSchema": {
@@ -368,15 +367,15 @@
         }
       },
       {
-        "name": "codegraph_dependencyPath",
+        "name": "graphweft_dependencyPath",
         "displayName": "Dependency Path",
         "modelDescription": "Using the local code graph, find the shortest import path between two files. Useful for understanding how two parts of the codebase are connected.",
-        "userDescription": "Let CodeGraph trace import paths between files",
+        "userDescription": "Let Graphweft trace import paths between files",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "dependencyPath",
         "icon": "$(git-compare)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "graph"
         ],
         "inputSchema": {
@@ -398,15 +397,15 @@
         }
       },
       {
-        "name": "codegraph_godNodes",
+        "name": "graphweft_godNodes",
         "displayName": "Hub Files",
         "modelDescription": "Using the local code graph, list the most-connected files (degree centrality) — the architectural hubs of the codebase.",
-        "userDescription": "Let CodeGraph list the most-connected files",
+        "userDescription": "Let Graphweft list the most-connected files",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "godNodes",
         "icon": "$(star)",
         "tags": [
-          "codegraph",
+          "graphweft",
           "graph"
         ],
         "inputSchema": {
@@ -423,40 +422,40 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "codegraph",
-          "title": "CodeGraph",
+          "id": "graphweft",
+          "title": "Graphweft",
           "icon": "media/sidebar-icon.svg"
         }
       ]
     },
     "views": {
-      "codegraph": [
+      "graphweft": [
         {
-          "id": "codegraph.sidebar",
+          "id": "graphweft.sidebar",
           "name": "Local Code Graph",
           "icon": "media/sidebar-icon.svg",
-          "contextualTitle": "CodeGraph"
+          "contextualTitle": "Graphweft"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "codegraph.refreshSidebar",
-          "when": "view == codegraph.sidebar",
+          "command": "graphweft.refreshSidebar",
+          "when": "view == graphweft.sidebar",
           "group": "navigation"
         },
         {
-          "command": "codegraph.showGraph",
-          "when": "view == codegraph.sidebar",
+          "command": "graphweft.showGraph",
+          "when": "view == graphweft.sidebar",
           "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "CodeGraph",
+      "title": "Graphweft",
       "properties": {
-        "codegraph.privacyMode": {
+        "graphweft.privacyMode": {
           "type": "string",
           "enum": [
             "standard",
@@ -464,68 +463,68 @@
             "local-only"
           ],
           "default": "standard",
-          "description": "Controls whether CodeGraph sends prompts to the language model. 'standard' sends prompts and logs each send to the audit log. 'preview-before-send' asks for confirmation each time. 'local-only' blocks all model calls — the extension only indexes and visualizes locally."
+          "description": "Controls whether Graphweft sends prompts to the language model. 'standard' sends prompts and logs each send to the audit log. 'preview-before-send' asks for confirmation each time. 'local-only' blocks all model calls — the extension only indexes and visualizes locally."
         },
-        "codegraph.enableAgentTools": {
+        "graphweft.enableAgentTools": {
           "type": "boolean",
           "default": true,
-          "description": "Allow the @codegraph chat agent to use tools — running terminal commands, reading/writing files, and querying the code graph — to actually carry out requests. Turn off to make @codegraph a read-only responder that only explains and suggests."
+          "description": "Allow the @graphweft chat agent to use tools — running terminal commands, reading/writing files, and querying the code graph — to actually carry out requests. Turn off to make @graphweft a read-only responder that only explains and suggests."
         },
-        "codegraph.includeExternalTools": {
+        "graphweft.includeExternalTools": {
           "type": "boolean",
           "default": true,
-          "description": "Also expose tools registered by other extensions (e.g. Copilot's built-in tools) to the @codegraph agent, so it is not capability-limited compared with the built-in agent. Disable to restrict @codegraph to its own CodeGraph tools only."
+          "description": "Also expose tools registered by other extensions (e.g. Copilot's built-in tools) to the @graphweft agent, so it is not capability-limited compared with the built-in agent. Disable to restrict @graphweft to its own Graphweft tools only."
         },
-        "codegraph.maxTools": {
+        "graphweft.maxTools": {
           "type": "number",
           "default": 128,
           "minimum": 1,
           "maximum": 128,
-          "description": "Maximum number of tools to send to the model per request. Language models reject requests with more than 128 tools, so CodeGraph caps the list here (its own tools are always kept first). Lower this if a model you use has a smaller limit."
+          "description": "Maximum number of tools to send to the model per request. Language models reject requests with more than 128 tools, so Graphweft caps the list here (its own tools are always kept first). Lower this if a model you use has a smaller limit."
         },
-        "codegraph.maxAgentSteps": {
+        "graphweft.maxAgentSteps": {
           "type": "number",
           "default": 16,
           "minimum": 1,
           "maximum": 50,
-          "description": "Maximum number of model round-trips the @codegraph agent may take in a single turn before it stops and offers a Continue button. Higher values let it complete larger multi-file tasks (e.g. read several files then apply several edits) without interruption; lower values cap cost per turn."
+          "description": "Maximum number of model round-trips the @graphweft agent may take in a single turn before it stops and offers a Continue button. Higher values let it complete larger multi-file tasks (e.g. read several files then apply several edits) without interruption; lower values cap cost per turn."
         },
-        "codegraph.autoApproveCommands": {
+        "graphweft.autoApproveCommands": {
           "type": "boolean",
           "default": false,
           "description": "Run terminal commands requested by the agent WITHOUT asking for confirmation. Off by default — every command shows an inline 'Continue/Cancel' prompt. Enable only if you trust the agent in this workspace."
         },
-        "codegraph.autoApproveEdits": {
+        "graphweft.autoApproveEdits": {
           "type": "boolean",
           "default": false,
           "description": "Create, overwrite, and edit files requested by the agent WITHOUT asking for confirmation. Off by default — every file change shows an inline confirmation."
         },
-        "codegraph.suggestModel": {
+        "graphweft.suggestModel": {
           "type": "boolean",
           "default": true,
-          "description": "Master switch for model-fit suggestions. On simple queries CodeGraph suggests a cheaper model to save tokens; on hard queries a stronger one. Difficulty is scored locally first. Turn off to disable all model suggestions/prompts."
+          "description": "Master switch for model-fit suggestions. On simple queries Graphweft suggests a cheaper model to save tokens; on hard queries a stronger one. Difficulty is scored locally first. Turn off to disable all model suggestions/prompts."
         },
-        "codegraph.modelSwitchPrompt": {
+        "graphweft.modelSwitchPrompt": {
           "type": "boolean",
           "default": true,
-          "description": "When a better-fit model is found, show in-chat buttons in the reply asking whether to answer with it. Clicking one reroutes @codegraph's OWN answer to your choice (re-runs the query on the next turn; your global model picker is never changed) and remembers your preference. Turn off to get a non-interactive advisory banner instead."
+          "description": "When a better-fit model is found, show in-chat buttons in the reply asking whether to answer with it. Clicking one reroutes @graphweft's OWN answer to your choice (re-runs the query on the next turn; your global model picker is never changed) and remembers your preference. Turn off to get a non-interactive advisory banner instead."
         },
-        "codegraph.suggestModelUsesLLM": {
+        "graphweft.suggestModelUsesLLM": {
           "type": "boolean",
           "default": true,
           "description": "On genuinely borderline queries, spend one tiny call to the CHEAPEST available model (query text only, never your code context) to grade difficulty more accurately. Results are cached so repeat questions are free, and the call is skipped entirely in local-only privacy mode. Turn off to rely on the zero-cost local heuristic alone."
         },
-        "codegraph.semanticSearch.enabled": {
+        "graphweft.semanticSearch.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Opt-in semantic (meaning-based) retrieval on top of the lexical+graph ranking, powered by a LOCAL embedding server you run yourself (Ollama or compatible). Nothing is bundled and no code ever leaves your machine — the endpoint is restricted to localhost. After enabling, run 'CodeGraph: Build Semantic Index'."
+          "description": "Opt-in semantic (meaning-based) retrieval on top of the lexical+graph ranking, powered by a LOCAL embedding server you run yourself (Ollama or compatible). Nothing is bundled and no code ever leaves your machine — the endpoint is restricted to localhost. After enabling, run 'Graphweft: Build Semantic Index'."
         },
-        "codegraph.semanticSearch.endpoint": {
+        "graphweft.semanticSearch.endpoint": {
           "type": "string",
           "default": "http://localhost:11434",
           "description": "Base URL of the local embedding server (Ollama-compatible). Must be a loopback address (localhost/127.0.0.1) — remote endpoints are rejected by design."
         },
-        "codegraph.semanticSearch.model": {
+        "graphweft.semanticSearch.model": {
           "type": "string",
           "default": "nomic-embed-text",
           "description": "Embedding model the local server should use (e.g. 'nomic-embed-text', 'mxbai-embed-large'). Pull it first: `ollama pull nomic-embed-text`."
@@ -534,7 +533,7 @@
     }
   },
   "bin": {
-    "codegraph": "out/node/cli.js"
+    "graphweft": "out/node/cli.js"
   },
   "scripts": {
     "compile": "tsc -p .",

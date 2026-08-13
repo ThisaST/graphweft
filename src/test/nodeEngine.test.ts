@@ -2,11 +2,11 @@ import * as assert from 'assert';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraphEngine } from '../node/codegraphEngine';
+import { GraphweftEngine } from '../node/graphweftEngine';
 import { scanDirectory } from '../node/nodeScanner';
 
 async function makeFixture(): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-engine-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'graphweft-engine-'));
   const write = async (rel: string, content: string): Promise<void> => {
     const abs = path.join(root, rel);
     await fs.mkdir(path.dirname(abs), { recursive: true });
@@ -37,7 +37,7 @@ async function makeFixture(): Promise<string> {
     ], `node_modules and obj should be excluded; got ${JSON.stringify(paths)}`);
 
     // --- engine indexes and builds edges across languages ---
-    const engine = new CodeGraphEngine();
+    const engine = new GraphweftEngine();
     const summary = await engine.indexDirectory(root);
     assert.strictEqual(summary.files, 4, 'four real source files indexed');
     assert.ok(summary.edges >= 2, `expected TS relative edge + C# namespace edge, got ${summary.edges}`);

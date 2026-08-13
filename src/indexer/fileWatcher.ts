@@ -28,13 +28,13 @@ export function registerFileSystemWatcher(indexer: WorkspaceIndexer): vscode.Dis
         (change) => {
           if (change) {
             console.log(
-              `CodeGraph: incrementally refreshed index (${change.updated.length} updated, ${change.removed.length} removed).`,
+              `Graphweft: incrementally refreshed index (${change.updated.length} updated, ${change.removed.length} removed).`,
             );
           }
         },
         (error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
-          console.warn(`CodeGraph: failed to refresh index. ${message}`);
+          console.warn(`Graphweft: failed to refresh index. ${message}`);
         },
       );
     }, flushDelayMs);
