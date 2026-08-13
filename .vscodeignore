@@ -28,6 +28,18 @@ docs/**
 out/node/**
 implementation/**
 
+# --- Local embedding runtime (CLI/MCP only — must NEVER enter the VSIX) ---
+# @huggingface/transformers and the ONNX runtime native binaries are hundreds of MB.
+# The extension's semantic path uses Ollama over HTTP and never imports these.
+node_modules/@huggingface/**
+node_modules/onnxruntime-node/**
+node_modules/onnxruntime-common/**
+node_modules/onnxruntime-web/**
+node_modules/sharp/**
+node_modules/@img/**
+node_modules/protobufjs/**
+node_modules/long/**
+
 # --- Keep only the icon assets the extension actually uses at runtime ---
 media/icon.svg
 

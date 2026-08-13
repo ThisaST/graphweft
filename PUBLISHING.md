@@ -123,6 +123,18 @@ You should see `media/icon.png`, `out/extension.js`,
 `node_modules/cytoscape/dist/cytoscape.min.js`, and a `sql.js/dist/*.wasm`. If
 any are missing, re-check step 4 (pnpm) and `.vscodeignore`.
 
+### What must NOT ship: the local embedding runtime
+
+`@huggingface/transformers` (and its `onnxruntime-node`/`sharp` native
+binaries — hundreds of MB) is a production dependency **for the headless
+CLI/MCP distribution only**. The extension's semantic path talks to Ollama over
+HTTP and never imports it, and `.vscodeignore` excludes the whole tree. After
+packaging, confirm none of it leaked in:
+
+```bash
+vsce ls | grep -E "huggingface|onnxruntime|sharp" && echo "LEAK — fix .vscodeignore" || echo "clean"
+```
+
 ---
 
 ## 6. Build, package, and smoke-test locally
