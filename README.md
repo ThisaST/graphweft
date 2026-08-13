@@ -74,11 +74,20 @@ required — so Copilot agent mode, Claude, Cursor, or any MCP client can query 
 }
 ```
 
-Tools: `codegraph_context` (ranked context for a task), `codegraph_impact` (blast radius),
+Tools: `codegraph_context` (ranked context for a task — hybrid with embeddings when an index
+exists), `codegraph_semantic_search` (embedding-based conceptual search with line-level hits),
+`codegraph_embed` (build/refresh the local embedding index), `codegraph_impact` (blast radius),
 `codegraph_path` (dependency path between files), `codegraph_hotspots` (god nodes),
 `codegraph_symbol_refs` (who imports a symbol / most-imported symbols), `codegraph_communities`,
 `codegraph_stats`. The server watches the workspace and re-indexes changed files on each call,
 so agents always see the current structure.
+
+**Local semantic search (CLI + MCP):** `codegraph embed` builds an on-device embedding index —
+AST-aware chunks (one per function/class) embedded with a bundled ONNX model
+(`@huggingface/transformers`, downloaded once to `~/.codegraph/models`), persisted per repo.
+`codegraph semantic "<query>"` returns the conceptually closest code with file:line ranges and
+snippets, and `codegraph search` fuses semantic similarity into its ranking automatically. No
+external server, nothing leaves your machine.
 
 Per-client setup (Claude Code, Copilot CLI, Codex, Cursor, Ollama) with verified commands is in
 [INTEGRATIONS.md](INTEGRATIONS.md). Measured token savings vs naive retrieval (~90%) are in

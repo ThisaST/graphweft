@@ -4,8 +4,8 @@ CodeGraph runs **headlessly** — no VS Code, no model calls, fully local. Two i
 surfaces, both wrapping the same engine:
 
 1. **MCP server** (recommended) — `out/mcp/server.js`, a zero-dependency JSON-RPC 2.0
-   stdio server exposing 7 read-only graph tools. Works with any MCP client: Claude Code,
-   GitHub Copilot (VS Code agent mode + CLI), OpenAI Codex, Cursor, Windsurf, …
+   stdio server exposing 9 read-only graph + semantic tools. Works with any MCP client:
+   Claude Code, GitHub Copilot (VS Code agent mode + CLI), OpenAI Codex, Cursor, Windsurf, …
 2. **CLI** — `out/node/cli.js`, plain shell commands printing JSON/markdown. For tools
    without MCP support (e.g. Ollama).
 
@@ -34,13 +34,22 @@ node /abs/path/to/codegraph/out/mcp/server.js /abs/path/to/your/project
 
 | Tool | What it returns |
 |---|---|
-| `codegraph_context` | Ranked, token-budgeted context pack for a task (files + symbols + dependency flow) |
+| `codegraph_context` | Ranked, token-budgeted context pack for a task (files + symbols + dependency flow). Automatically **hybrid** — fuses embedding similarity into the ranking when a semantic index exists |
+| `codegraph_semantic_search` | Embedding-based search: functions/classes conceptually similar to a natural-language query, with file:line ranges + snippets |
+| `codegraph_embed` | Builds/refreshes the on-device embedding index (incremental; downloads the local ONNX model on first use) |
 | `codegraph_impact` | Files transitively affected if a given file changes |
 | `codegraph_path` | Shortest dependency path between two files |
 | `codegraph_hotspots` | God nodes / high-centrality files |
 | `codegraph_symbol_refs` | Most-referenced symbols and where they're used |
 | `codegraph_communities` | Louvain module clusters |
 | `codegraph_stats` | Index size (files / symbols / edges) |
+
+**Semantic search** is fully local: embeddings run in-process via ONNX
+(`@huggingface/transformers`), vectors persist per-repo under `~/.codegraph/index/`, and the
+watcher re-embeds changed files incrementally. Build the index once with the
+`codegraph_embed` tool or `codegraph embed` on the CLI; without it, every tool still works —
+`codegraph_context` simply stays lexical/graph-only. Set `CODEGRAPH_EMBED_RUNTIME=off` to
+disable embeddings entirely.
 
 ---
 
@@ -164,11 +173,13 @@ at the same stdio server.
 ## The CLI (fallback for non-MCP tools)
 
 ```bash
-codegraph index   [dir]                  # build the graph, print {files, symbols, edges}
-codegraph search  [dir] <query...>       # ranked, structure-aware context for a query (JSON)
-codegraph impact  [dir] <file>           # files that transitively depend on <file>
-codegraph path    [dir] <fileA> <fileB>  # shortest dependency path
-codegraph report  [dir]                  # full graph report (god nodes, communities) as markdown
+codegraph index    [dir]                  # build the graph, print {files, symbols, edges}
+codegraph search   [dir] <query...>       # ranked context for a query (JSON); hybrid when an embedding index exists (--no-semantic to opt out)
+codegraph embed    [dir]                  # build/refresh the local embedding index (--model <hf-id>, --wipe)
+codegraph semantic [dir] <query...>       # pure embedding search: chunk-level hits w/ line ranges + snippets (--top N)
+codegraph impact   [dir] <file>           # files that transitively depend on <file>
+codegraph path     [dir] <fileA> <fileB>  # shortest dependency path
+codegraph report   [dir]                  # full graph report (god nodes, communities) as markdown
 ```
 
 Install globally for the bare `codegraph` command: `npm install -g .` from this repo.

@@ -187,7 +187,9 @@ node out/mcp/server.js /path/to/workspace
 
 | Tool | What it returns |
 | --- | --- |
-| `codegraph_context` | Ranked files/symbols/dependency flow for a task query. |
+| `codegraph_context` | Ranked files/symbols/dependency flow for a task query (hybrid with embeddings when an index exists). |
+| `codegraph_semantic_search` | Embedding-based conceptual search — chunk-level hits with line ranges and snippets. |
+| `codegraph_embed` | Builds/refreshes the local embedding index (incremental). |
 | `codegraph_impact` | Blast radius — files transitively importing a file. |
 | `codegraph_path` | Shortest dependency path between two files. |
 | `codegraph_hotspots` | Most-connected files (god nodes). |
@@ -196,4 +198,25 @@ node out/mcp/server.js /path/to/workspace
 | `codegraph_stats` | Index size + freshness info. |
 
 The server watches the workspace via `fs.watch` and applies changed files incrementally before every
-tool call, so answers always reflect the current code.
+tool call, so answers always reflect the current code. When an embedding index exists, changed files
+are re-embedded incrementally too (best-effort).
+
+## Local semantic search (CLI + MCP)
+
+Fully on-device embeddings — no external server required. The model
+(default `jinaai/jina-embeddings-v2-base-code`, quantized ONNX) is downloaded once to
+`~/.codegraph/models` on first use; vectors persist per repo under `~/.codegraph/index/`.
+
+```bash
+node out/node/cli.js embed .                          # build/refresh the embedding index
+node out/node/cli.js embed . --model Xenova/all-MiniLM-L6-v2   # smaller/faster model (~25 MB)
+node out/node/cli.js embed . --wipe                   # discard vectors and re-embed from scratch
+node out/node/cli.js semantic . "where do we debounce file watcher events" --top 10
+node out/node/cli.js search . "auth flow"             # hybrid automatically when index exists
+node out/node/cli.js search . "auth flow" --no-semantic   # graph/lexical only
+```
+
+Environment overrides: `CODEGRAPH_EMBED_MODEL` (HF model id), `CODEGRAPH_MODEL_CACHE`,
+`CODEGRAPH_CACHE_DIR` (vector index root), `CODEGRAPH_EMBED_RUNTIME`
+(`auto` | `local` | `ollama` | `off`). Chunking is AST-aware (one chunk per top-level
+symbol + a file-summary chunk); only changed chunks re-embed on subsequent runs.

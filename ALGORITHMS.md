@@ -112,6 +112,18 @@ sees collaborators), and `mergeRankedFiles` sums scores for files matched by mul
 | Cosine similarity top-K | `src/semantic/vectorIndex.ts` | `similarity = dot(q,v) / (‖q‖·‖v‖)`, filtered by `minSimilarity`, sorted, top-K. One vector per file → sub-millisecond even on thousands of files. |
 | Graph-aware document | `src/semantic/semanticDoc.ts` | Embeds a **structured summary** (path + namespace + symbol signatures + imports), not raw text — so one small vector captures what a file is *and* how it connects. Content-hashed for incremental re-embedding. |
 
+### 5b. Local embeddings — CLI / MCP (chunk-level, bundled runtime)
+
+The headless hosts get a deeper semantic pipeline that needs **no external server**:
+
+| Algorithm | File | Details |
+|---|---|---|
+| AST-aware chunking | `src/semantic/codeChunker.ts` | One chunk per **top-level symbol** (function/class; methods folded into their class chunk), body capped at 1,500 chars, each prefixed with a *situating header* (`file path › kind signature`) that anchors the vector in its context. Plus one file-summary chunk (reuses `buildSemanticDoc`) for coarse "which file" queries, and a sliding-window fallback (60 lines, 10 overlap) for symbol-less files. Chunk id = `path#kind:discriminator`; content hash (sha256/16) drives incremental re-embedding. Caps: 200 chunks/file. |
+| Bundled ONNX embedding | `src/semantic/localEmbeddingProvider.ts` | `@huggingface/transformers` feature-extraction pipeline (mean pooling + L2 normalize, q8 quantization), lazily imported so nothing ONNX-related loads unless used. Default model `jinaai/jina-embeddings-v2-base-code`; fast alternative `Xenova/all-MiniLM-L6-v2`. Downloaded once to `~/.codegraph/models`. Batch size 16. |
+| Provider chain | `src/semantic/providerChain.ts` | `auto`: bundled ONNX → Ollama (only when an endpoint is configured) → disabled. Provider id (`runtime::model`) is the invalidation key — switching models resets stored vectors. |
+| Persistent vector store | `src/semantic/sqliteVectorStore.ts` | sql.js DB per repo at `~/.codegraph/index/<repo-hash>/semantic.db`; Float32 BLOB vectors; brute-force cosine top-K (fine to ~50k chunks). Incremental upsert by chunk hash; deleted chunks pruned. |
+| Hybrid fusion | `src/semantic/headlessSemanticIndex.ts` + `src/graph/graphRanker.ts` | Chunk similarities are **max-pooled per file** and fed as `hints.semanticMatches` into the existing reciprocal-rank fusion — semantic becomes a third ranking signal next to keyword and PageRank, with no new scale tuning. Chunk-level hits (path, symbol, line range, snippet) are surfaced directly to LLMs via `codegraph semantic` / `codegraph_semantic_search`. |
+
 ### 6. Context compression / budgeting (produces the "compact" context)
 
 | Algorithm | File | Details |
@@ -133,7 +145,7 @@ sees collaborators), and `mergeRankedFiles` sums scores for files matched by mul
 |---|---|---|
 | SQLite store (schema v3) | `src/graph/sqliteGraphStore.ts` | sql.js (WASM SQLite) with `files`/`symbols`/`imports` tables + `content_hash`. `upsert` patches only changed files; edges recompute globally from the merged in-memory set (resolution is global; no re-parsing). Writes are **debounced 500 ms** (sql.js exports the whole DB per persist); `dispose()` flushes on deactivation. |
 | Headless engine | `src/node/codegraphEngine.ts` + `src/node/nodeScanner.ts` | The same indexers/retriever/algorithms without VS Code — drives the CLI and the MCP server. |
-| MCP server | `src/mcp/server.ts` | Zero-dependency **JSON-RPC 2.0 over stdio** (newline-delimited) exposing `codegraph_context`, `codegraph_impact`, `codegraph_path`, `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats` to any MCP client (Copilot agent mode, Claude, Cursor…). Freshness via recursive `fs.watch` + dirty-set incremental reindex on each tool call. |
+| MCP server | `src/mcp/server.ts` | Zero-dependency **JSON-RPC 2.0 over stdio** (newline-delimited) exposing `codegraph_context`, `codegraph_semantic_search`, `codegraph_embed`, `codegraph_impact`, `codegraph_path`, `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats` to any MCP client (Copilot agent mode, Claude, Cursor…). Freshness via recursive `fs.watch` + dirty-set incremental reindex (and best-effort incremental re-embed) on each tool call. |
 
 ---
 

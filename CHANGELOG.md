@@ -4,6 +4,40 @@ All notable changes to **Codemap — Local Code Graph** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-08-13
+
+### Added
+- **Fully-local, chunk-level semantic search for the CLI and MCP server.** Embeddings now run
+  **in-process** via a bundled ONNX runtime (`@huggingface/transformers`) — no Ollama or any
+  external server required. The model (default `jinaai/jina-embeddings-v2-base-code`,
+  quantized; fast alternative `Xenova/all-MiniLM-L6-v2`) is downloaded once to
+  `~/.codegraph/models` and never ships in the package.
+- **AST-aware chunking** (`src/semantic/codeChunker.ts`): one chunk per top-level
+  function/class with a situating header (path › kind › signature), a file-summary chunk per
+  file, and a sliding-window fallback for symbol-less files — so results point LLMs at precise
+  symbols and line ranges instead of whole files.
+- **Persistent per-repo vector store** (`src/semantic/sqliteVectorStore.ts`): sql.js database
+  under `~/.codegraph/index/<repo-hash>/semantic.db`, incremental by chunk content hash —
+  re-running `embed` after an edit re-embeds only what changed.
+- **New CLI commands**: `codegraph embed [dir]` (`--model`, `--wipe`),
+  `codegraph semantic [dir] <query…>` (`--top`), and `codegraph search` is now **hybrid by
+  default** — embedding similarity is fused into the reciprocal-rank fusion whenever an index
+  exists (`--no-semantic` to opt out).
+- **New MCP tools**: `codegraph_semantic_search` (chunk-level hits with snippets) and
+  `codegraph_embed`; `codegraph_context` fuses semantic ranks automatically. The workspace
+  watcher incrementally re-embeds changed files (best-effort).
+- **Provider chain** (`src/semantic/providerChain.ts`): `auto` prefers the bundled local
+  runtime, falls back to Ollama when configured; `CODEGRAPH_EMBED_RUNTIME` /
+  `CODEGRAPH_EMBED_MODEL` / `CODEGRAPH_MODEL_CACHE` / `CODEGRAPH_CACHE_DIR` overrides.
+- Tests: `codeChunker`, `semanticLocal` (provider chain + vector store), `semanticEngine`
+  (hybrid engine, injected fake providers), MCP semantic tool coverage — no model downloads
+  in CI.
+
+### Changed
+- The VS Code extension is unaffected: it keeps its Ollama-based file-level semantic path, and
+  `.vscodeignore` now hard-excludes `@huggingface/transformers`/`onnxruntime`/`sharp` so ONNX
+  binaries can never enter the VSIX (leak check documented in PUBLISHING.md).
+
 ## [0.7.0] — 2026-08-12
 
 ### Added
