@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests: `codeChunker`, `semanticLocal` (provider chain + vector store), `semanticEngine`
   (hybrid engine, injected fake providers), MCP semantic tool coverage — no model downloads
   in CI.
+- **Retrieval quality benchmark** (`src/benchmark/retrievalBenchmark.ts`): grep baseline vs
+  graph-only vs hybrid on 12 ground-truth queries. Hybrid: MRR 0.547 vs 0.38 for both
+  baselines; 100% lexical hit@5; conceptual hit@5 43% vs 14% graph-only — at the same token
+  cost as graph-only. Results in BENCHMARKS.md.
 
 ### Changed
 - The VS Code extension is unaffected: it keeps its Ollama-based file-level semantic path, and
