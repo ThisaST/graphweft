@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph-only vs hybrid on 12 ground-truth queries. Hybrid: MRR 0.547 vs 0.38 for both
   baselines; 100% lexical hit@5; conceptual hit@5 43% vs 14% graph-only — at the same token
   cost as graph-only. Results in BENCHMARKS.md.
+- **Agent-in-the-loop benchmark** (`src/benchmark/agentBenchmark.ts`): real Claude Code and
+  GitHub Copilot CLI agents answering 8 ground-truth codebase questions across three arms
+  (no codegraph / graph-only MCP / graph+embeddings MCP), with per-run correctness, wall time,
+  turns, tokens, cost, and codegraph tool-call telemetry. Headline: the one task no agent
+  solved without codegraph (keyword-free conceptual lookup) was solved with it; Copilot cut
+  wall time 27%; tool *adoption* (not tool quality) is the bottleneck for Claude. Full
+  methodology, results, and caveats in AGENT_BENCHMARKS.md.
 
 ### Changed
 - The VS Code extension is unaffected: it keeps its Ollama-based file-level semantic path, and

@@ -1,5 +1,8 @@
 # CodeGraph Token-Savings Benchmark
 
+> See also [AGENT_BENCHMARKS.md](AGENT_BENCHMARKS.md) for the agent-in-the-loop benchmark:
+> real Claude Code / Copilot CLI agents with and without the codegraph MCP server.
+
 _Generated 2026-08-12T18:24:30.811Z · tokenizer: **o200k_base (GPT-4o / o-series)** · budget: 6000 tokens_
 
 Indexed **91 files**, 620 symbols, 217 edges from `C:\Users\dtp\Development\ElementLogic\copilot-worktrees\codegraph-copilet-chat-main\thisara-sturdy-doodle`.
