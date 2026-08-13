@@ -541,7 +541,7 @@
     "prepublishOnly": "npm run compile",
     "cli": "node out/node/cli.js",
     "mcp": "node out/mcp/server.js",
-    "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/graphAlgorithms.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/codeChunker.test.js && node out/test/semanticLocal.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js && node out/test/mcpServer.test.js && node out/test/mcpClients.test.js && node out/test/treeSitter.test.js",
+    "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/graphAlgorithms.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/codeChunker.test.js && node out/test/semanticLocal.test.js && node out/test/semanticEngine.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js && node out/test/mcpServer.test.js && node out/test/mcpClients.test.js && node out/test/treeSitter.test.js",
     "watch": "tsc -watch -p .",
     "vscode:prepublish": "npm run compile"
   },

@@ -10,14 +10,18 @@
  * Usage: node out/mcp/server.js [workspaceRoot]   (defaults to cwd)
  */
 import * as fsSync from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { buildContextMarkdown } from '../compressor/contextCompressor';
 import { buildFileGraph, buildSymbolReferences, communityLabels, computeDegrees, impactSet, shortestPath, symbolUsageCounts } from '../graph/graphAlgorithms';
 import { GraphRetriever } from '../graph/graphRetriever';
+import { CodeGraphFile } from '../graph/graphTypes';
 import { InMemoryGraphStore } from '../graph/inMemoryGraphStore';
 import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
 import { WorkspaceSourceFile } from '../indexer/sourceFile';
+import { HeadlessSemanticIndex, toFileMatches } from '../semantic/headlessSemanticIndex';
 import { isSupportedSourcePath } from '../utils/fileFilters';
 import { readSourceFile, scanDirectory, toRelativePath } from '../node/nodeScanner';
 
@@ -33,6 +37,7 @@ class HeadlessCodeGraph {
   private built = false;
   private readonly dirty = new Set<string>();
   private watcher?: fsSync.FSWatcher;
+  private semantic?: HeadlessSemanticIndex;
 
   public constructor(private readonly root: string) {}
 
@@ -78,15 +83,45 @@ class HeadlessCodeGraph {
       else removed.push(toRelativePath(this.root, absolute));
     }
     await this.store.upsert(updated.map(indexSource), removed);
+    await this.refreshSemantic();
   }
 
   public getStore(): InMemoryGraphStore {
     return this.store;
   }
+
+  /** Per-repo semantic index (embedding provider + persistent vectors), opened lazily. */
+  public async getSemantic(): Promise<HeadlessSemanticIndex> {
+    this.semantic ??= await HeadlessSemanticIndex.open(this.root);
+    return this.semantic;
+  }
+
+  /**
+   * Best-effort semantic refresh after graph changes: the build is incremental by chunk
+   * hash, so an unchanged repo is a no-op and edits re-embed only the touched chunks.
+   * Quietly skipped when embeddings were never built or no backend is available.
+   */
+  private async refreshSemantic(): Promise<void> {
+    try {
+      const semantic = await this.getSemantic();
+      if (!semantic.canEmbed() || !semantic.hasVectors()) return;
+      await semantic.build(this.store.getFiles(), readGraphFileText);
+    } catch {
+      // Semantic freshness is never allowed to break graph tools.
+    }
+  }
 }
 
 function indexSource(file: WorkspaceSourceFile) {
   return file.isTypescript ? indexTypeScriptFile(file) : indexGenericFile(file);
+}
+
+async function readGraphFileText(file: CodeGraphFile): Promise<string | undefined> {
+  try {
+    return await fs.readFile(fileURLToPath(file.uri), 'utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -119,7 +154,12 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
       run: async (args) => {
         const task = expectString(args, 'task');
         const budget = typeof args.tokenBudget === 'number' ? args.tokenBudget : 6000;
-        const retrieval = new GraphRetriever(engine.getStore()).retrieve(task, budget);
+        // Fuse semantic similarity into the ranking when an embedding index exists for
+        // this repo; trySearch is a silent no-op otherwise.
+        const semantic = await engine.getSemantic().catch(() => undefined);
+        const chunkMatches = (await semantic?.trySearch(task, 24)) ?? [];
+        const hints = chunkMatches.length > 0 ? { semanticMatches: toFileMatches(chunkMatches) } : {};
+        const retrieval = new GraphRetriever(engine.getStore()).retrieve(task, budget, hints);
         return buildContextMarkdown(task, retrieval, budget);
       },
     },
@@ -229,6 +269,59 @@ function buildTools(engine: HeadlessCodeGraph): ToolDefinition[] {
         const top = symbolUsageCounts(references).slice(0, limit);
         if (top.length === 0) return 'No symbol-level references resolved.';
         return top.map((s) => `- ${s.symbolName} (${s.definedIn}) — imported by ${s.referencedBy} file(s)`).join('\n');
+      },
+    },
+    {
+      name: 'codegraph_semantic_search',
+      description:
+        'Semantic (embedding-based) code search: returns the functions/classes most conceptually similar to a natural-language query, with file paths, line ranges and snippets. Requires an embedding index (run `codegraph embed` once, or call codegraph_embed).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Natural-language description of the code you are looking for.' },
+          limit: { type: 'number', description: 'Max chunk results (default 8).' },
+        },
+        required: ['query'],
+      },
+      run: async (args) => {
+        const query = expectString(args, 'query');
+        const limit = typeof args.limit === 'number' ? args.limit : 8;
+        const semantic = await engine.getSemantic();
+        if (!semantic.hasVectors()) {
+          return 'No embedding index exists for this repository yet. Run `codegraph embed` in the repo (or call the codegraph_embed tool) to build one.';
+        }
+        const matches = await semantic.search(query, limit);
+        if (matches.length === 0) return 'No semantically similar code found for that query.';
+        const filesByPath = new Map(engine.getStore().getFiles().map((f) => [f.path, f]));
+        const lines: string[] = [];
+        for (const m of matches) {
+          const label = m.symbol ? `${m.symbol} (${m.kind})` : m.kind;
+          lines.push(`- ${m.path}:${m.startLine}-${m.endLine} — ${label} · similarity ${m.similarity.toFixed(3)}`);
+          const file = filesByPath.get(m.path);
+          const text = file ? await readGraphFileText(file) : undefined;
+          if (text !== undefined) {
+            const snippet = text
+              .split(/\r\n|\r|\n/)
+              .slice(m.startLine - 1, Math.min(m.endLine, m.startLine + 7))
+              .join('\n');
+            lines.push('  ```', snippet.replace(/^/gm, '  '), '  ```');
+          }
+        }
+        return lines.join('\n');
+      },
+    },
+    {
+      name: 'codegraph_embed',
+      description:
+        'Build or refresh the on-device embedding index for this repository (downloads the local ONNX model to the user cache on first use). Incremental: unchanged code is not re-embedded.',
+      inputSchema: { type: 'object', properties: {} },
+      run: async () => {
+        const semantic = await engine.getSemantic();
+        if (!semantic.canEmbed()) {
+          return 'No embedding backend is available (local ONNX runtime missing and no Ollama endpoint configured).';
+        }
+        const stats = await semantic.build(engine.getStore().getFiles(), readGraphFileText);
+        return `Embedding index ready: ${stats.embedded} chunk(s) embedded, ${stats.reused} reused, ${stats.pruned} pruned (provider ${semantic.providerId()}).`;
       },
     },
     {

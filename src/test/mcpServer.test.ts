@@ -25,7 +25,12 @@ async function runTests(): Promise<void> {
   );
 
   const serverPath = path.join(__dirname, '..', 'mcp', 'server.js');
-  const child = spawn(process.execPath, [serverPath, root], { stdio: ['pipe', 'pipe', 'pipe'] });
+  // Deterministic semantic behavior: no embedding backend, and an isolated vector-cache dir.
+  const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-mcp-cache-'));
+  const child = spawn(process.execPath, [serverPath, root], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, CODEGRAPH_EMBED_RUNTIME: 'off', CODEGRAPH_CACHE_DIR: cacheDir },
+  });
 
   const pending = new Map<number, (response: JsonRpcResponse) => void>();
   let buffer = '';
@@ -73,6 +78,8 @@ async function runTests(): Promise<void> {
     assert.ok(tools.includes('codegraph_context'), 'context tool listed');
     assert.ok(tools.includes('codegraph_impact'), 'impact tool listed');
     assert.ok(tools.includes('codegraph_stats'), 'stats tool listed');
+    assert.ok(tools.includes('codegraph_semantic_search'), 'semantic search tool listed');
+    assert.ok(tools.includes('codegraph_embed'), 'embed tool listed');
 
     const stats = await request('tools/call', { name: 'codegraph_stats', arguments: {} });
     const statsText = (stats.result?.content as Array<{ text: string }>)[0].text;
@@ -95,6 +102,18 @@ async function runTests(): Promise<void> {
 
     const badTool = await request('tools/call', { name: 'nope', arguments: {} });
     assert.ok(badTool.error, 'unknown tool is a JSON-RPC error');
+
+    // Semantic tools degrade gracefully when embeddings are disabled and no index exists.
+    const semantic = await request('tools/call', {
+      name: 'codegraph_semantic_search',
+      arguments: { query: 'find the user lookup' },
+    });
+    const semanticText = (semantic.result?.content as Array<{ text: string }>)[0].text;
+    assert.ok(/No embedding index exists/.test(semanticText), `semantic search explains missing index: ${semanticText}`);
+
+    const embed = await request('tools/call', { name: 'codegraph_embed', arguments: {} });
+    const embedText = (embed.result?.content as Array<{ text: string }>)[0].text;
+    assert.ok(/No embedding backend is available/.test(embedText), `embed explains missing backend: ${embedText}`);
 
     const badMethod = await request('bogus/method');
     assert.strictEqual(badMethod.error?.code, -32601, 'unknown method returns -32601');
