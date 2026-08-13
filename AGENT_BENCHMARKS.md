@@ -149,6 +149,26 @@ trusting a wrong-but-plausible chunk. The `codegraph_semantic_search` output alr
 includes line-ranged snippets; tool descriptions should tell agents to confirm values in
 the cited file before answering (cheap: one targeted read).
 
+### Token economics: counts up, cost down
+
+| Agent | Arm | Avg input tok | Avg output tok | Avg cost/run |
+|---|---|---|---|---|
+| claude | A baseline | 92.7k | 701 | $0.057 |
+| claude | B graph-only | 159.3k | 1,002 | $0.053 |
+| claude | C hybrid | 133.3k | 1,020 | **$0.028** |
+
+Attaching 9 MCP tools adds tool schemas to every turn's context, so *raw* input-token
+counts rise — but nearly all of that is prompt-cache reads (~10× cheaper than fresh
+tokens), so cost falls. This differs from the payload-level measurement in BENCHMARKS.md
+(hybrid retrieval −83% tokens vs grep dumps): the agent loop adds fixed schema overhead
+per turn, while the payoff arrives as fewer flailing turns on hard tasks (baseline
+`vector-prune`: 27 tool calls, $0.107, wrong; nudged arm C: 10 turns, $0.059, correct).
+At agent level, the savings unit is **cost and turns, not raw token counts** — and it
+compounds with repo size, since grep loops grow with the codebase while retrieval
+payloads stay bounded. (Claude's arm-order cache warming inflates part of the arm-C
+saving; Copilot's footer exposes only an aggregate ↑ count, so credits are its
+trustworthy unit.)
+
 ### Relation to the synthetic benchmark (BENCHMARKS.md)
 
 | | Synthetic retrieval | Agent-in-the-loop |
