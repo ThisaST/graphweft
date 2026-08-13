@@ -4,25 +4,35 @@
  * and as a shell tool by any AI coding tool (Claude Code, Codex, Copilot CLI) that can run
  * commands. The MCP server wraps this same engine for richer integrations.
  *
- *   codegraph index   [dir]                 build the graph, print a summary
- *   codegraph search  [dir] <query...>      ranked, structure-aware context for a query (JSON)
- *   codegraph impact  [dir] <file>          files that transitively depend on <file>
- *   codegraph path    [dir] <fileA> <fileB> shortest dependency path
- *   codegraph report  [dir]                 full graph report (markdown)
+ *   codegraph index    [dir]                 build the graph, print a summary
+ *   codegraph search   [dir] <query...>      ranked, structure-aware context for a query (JSON);
+ *                                            fuses semantic similarity when an embedding index
+ *                                            exists (opt out with --no-semantic)
+ *   codegraph embed    [dir]                 build/refresh the local embedding index
+ *                                            (--model <hf-id>, --wipe; first run downloads the
+ *                                            model to ~/.codegraph/models — fully local after)
+ *   codegraph semantic [dir] <query...>      chunk-level semantic code search (JSON)
+ *   codegraph impact   [dir] <file>          files that transitively depend on <file>
+ *   codegraph path     [dir] <fileA> <fileB> shortest dependency path
+ *   codegraph report   [dir]                 full graph report (markdown)
  *
  * `dir` defaults to the current directory.
  */
 import { CodeGraphEngine } from './codegraphEngine';
+import { resolveLocalModel } from '../semantic/localEmbeddingProvider';
 
 async function main(argv: string[]): Promise<number> {
-  const [command, ...rest] = argv;
-  if (!command || command === '-h' || command === '--help') {
+  const { flags, positional } = parseFlags(argv);
+  const [command, ...rest] = positional;
+  if (!command || command === '-h' || command === '--help' || flags.has('help')) {
     printUsage();
     return command ? 0 : 1;
   }
 
   // First non-flag arg is an optional directory; default to cwd if it looks like a query/flag.
-  const engine = new CodeGraphEngine();
+  const engine = new CodeGraphEngine({
+    semantic: flags.has('model') ? { local: { model: flags.get('model') } } : undefined,
+  });
 
   switch (command) {
     case 'index': {
@@ -35,7 +45,40 @@ async function main(argv: string[]): Promise<number> {
       const { dir, args } = splitDirAndArgs(rest);
       if (args.length === 0) return fail('search needs a query: codegraph search [dir] <query...>');
       await engine.indexDirectory(dir);
-      process.stdout.write(`${JSON.stringify(engine.search(args.join(' ')), null, 2)}\n`);
+      const result = flags.has('no-semantic')
+        ? engine.search(args.join(' '))
+        : await engine.searchHybrid(args.join(' '));
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return 0;
+    }
+    case 'embed': {
+      const dir = rest[0] ?? '.';
+      await engine.indexDirectory(dir);
+      if (flags.has('wipe')) {
+        await engine.wipeSemanticIndex();
+        process.stdout.write('Semantic index wiped.\n');
+        return 0;
+      }
+      process.stderr.write(
+        `Embedding with "${resolveLocalModel(flags.get('model'))}" — first run downloads the model ` +
+          'to ~/.codegraph/models (local-only afterwards)…\n',
+      );
+      let lastReported = 0;
+      const stats = await engine.buildSemanticIndex((embedded, total) => {
+        if (embedded - lastReported >= 64 || embedded === total) {
+          process.stderr.write(`  embedded ${embedded}/${total} chunks\n`);
+          lastReported = embedded;
+        }
+      });
+      process.stdout.write(`${JSON.stringify(stats, null, 2)}\n`);
+      return 0;
+    }
+    case 'semantic': {
+      const { dir, args } = splitDirAndArgs(rest);
+      if (args.length === 0) return fail('semantic needs a query: codegraph semantic [dir] <query...>');
+      await engine.indexDirectory(dir);
+      const hits = await engine.semanticSearch(args.join(' '), { topK: flagInt(flags, 'top', 12) });
+      process.stdout.write(`${JSON.stringify({ query: args.join(' '), hits }, null, 2)}\n`);
       return 0;
     }
     case 'impact': {
@@ -64,6 +107,36 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
+/** Split `--flag[=value]` options from positional args. `--model X` consumes the next arg. */
+function parseFlags(argv: string[]): { flags: Map<string, string | undefined>; positional: string[] } {
+  const flags = new Map<string, string | undefined>();
+  const positional: string[] = [];
+  const valueFlags = new Set(['model', 'top']);
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith('--')) {
+      positional.push(arg);
+      continue;
+    }
+    const body = arg.slice(2);
+    const eq = body.indexOf('=');
+    if (eq >= 0) {
+      flags.set(body.slice(0, eq), body.slice(eq + 1));
+    } else if (valueFlags.has(body) && i + 1 < argv.length && !argv[i + 1].startsWith('--')) {
+      flags.set(body, argv[++i]);
+    } else {
+      flags.set(body, undefined);
+    }
+  }
+  return { flags, positional };
+}
+
+function flagInt(flags: Map<string, string | undefined>, name: string, fallback: number): number {
+  const raw = flags.get(name);
+  const parsed = raw === undefined ? NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /** Treat the first arg as a directory only if it exists-ish (contains a slash or is '.'); else cwd. */
 function splitDirAndArgs(rest: string[]): { dir: string; args: string[] } {
   if (rest.length > 1 && (rest[0] === '.' || rest[0].includes('/') || rest[0].includes('\\'))) {
@@ -82,11 +155,13 @@ function printUsage(): void {
   process.stderr.write(
     [
       'Usage:',
-      '  codegraph index   [dir]',
-      '  codegraph search  [dir] <query...>',
-      '  codegraph impact  [dir] <file>',
-      '  codegraph path    [dir] <fileA> <fileB>',
-      '  codegraph report  [dir]',
+      '  codegraph index    [dir]',
+      '  codegraph search   [dir] <query...>   [--no-semantic]',
+      '  codegraph embed    [dir]              [--model <hf-id>] [--wipe]',
+      '  codegraph semantic [dir] <query...>   [--top <n>]',
+      '  codegraph impact   [dir] <file>',
+      '  codegraph path     [dir] <fileA> <fileB>',
+      '  codegraph report   [dir]',
       '',
     ].join('\n'),
   );
