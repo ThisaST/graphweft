@@ -6,7 +6,7 @@ const snippetSymbolLimit = 3;
 export function buildContextMarkdown(task: string, retrieval: RetrievalResult, maxTokens = retrieval.tokenBudget || defaultTokenBudget): string {
   const writer = new BudgetedMarkdownWriter(maxTokens);
 
-  writer.forceLine('# CodeGraph Context Package');
+  writer.forceLine('# Graphweft Context Package');
   writer.forceLine('');
   writer.forceLine('## Task');
   writer.forceLine(task);
@@ -117,7 +117,7 @@ function appendRelatedTests(writer: BudgetedMarkdownWriter, retrieval: Retrieval
 
 function buildCopilotInstruction(task: string, retrieval: RetrievalResult): string {
   const fileList = retrieval.files.map((result) => result.file.path).join(', ') || 'the relevant files in the workspace';
-  return `Use the CodeGraph context above to help with this task: "${task}". Focus on ${fileList}. Prefer the listed signatures and compact snippets over reading full files, keep changes local where possible, and consider the related tests.`;
+  return `Use the Graphweft context above to help with this task: "${task}". Focus on ${fileList}. Prefer the listed signatures and compact snippets over reading full files, keep changes local where possible, and consider the related tests.`;
 }
 
 function formatReasons(reasons: string[]): string {

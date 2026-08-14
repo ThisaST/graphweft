@@ -1,13 +1,13 @@
 /**
  * Three-way retrieval benchmark:
  *
- *   A) NO CODEGRAPH  — grep-style: rank files by lexical keyword hits, read the
+ *   A) NO GRAPHWEFT  — grep-style: rank files by lexical keyword hits, read the
  *      full text of the top matches (what an agent without an index does).
- *   B) CODEGRAPH     — graph/lexical retrieval only (no embedding index): the
+ *   B) GRAPHWEFT     — graph/lexical retrieval only (no embedding index): the
  *      compact context package from GraphRetriever + buildContextMarkdown.
- *   C) CODEGRAPH+EMB — hybrid: chunk-level embedding similarities fused into the
- *      same retriever via reciprocal-rank fusion (exactly what `codegraph search`
- *      and the MCP `codegraph_context` tool do when an embedding index exists).
+ *   C) GRAPHWEFT+EMB — hybrid: chunk-level embedding similarities fused into the
+ *      same retriever via reciprocal-rank fusion (exactly what `graphweft search`
+ *      and the MCP `graphweft_context` tool do when an embedding index exists).
  *
  * For each query with known ground-truth files we measure:
  *   - retrieval quality: hit@1, hit@5, MRR (rank of the first ground-truth file)
@@ -17,14 +17,14 @@
  *
  * Requires an existing embedding index for mode C — build one first:
  *   node out/node/cli.js embed <dir> [--model <hf-id>]
- * and run with the same CODEGRAPH_EMBED_MODEL so the provider id matches.
+ * and run with the same GRAPHWEFT_EMBED_MODEL so the provider id matches.
  *
  * Usage:
  *   node out/benchmark/retrievalBenchmark.js [dir] [--json out.json] [--md out.md]
  */
 import * as fs from 'fs';
 import * as nodePath from 'path';
-import { CodeGraphEngine } from '../node/codegraphEngine';
+import { GraphweftEngine } from '../node/graphweftEngine';
 import { GraphRetriever } from '../graph/graphRetriever';
 import { buildContextMarkdown } from '../compressor/contextCompressor';
 import { scanDirectory } from '../node/nodeScanner';
@@ -162,7 +162,7 @@ export interface RetrievalBenchmarkReport {
 // ------------------------------------------------------------------------------------
 
 export async function runRetrievalBenchmark(root: string, queries: QuerySpec[] = QUERIES): Promise<RetrievalBenchmarkReport> {
-  const engine = new CodeGraphEngine();
+  const engine = new GraphweftEngine();
   const summary = await engine.indexDirectory(root);
   const store = engineStore(engine);
   const sources = await scanDirectory(root);
@@ -172,28 +172,28 @@ export async function runRetrievalBenchmark(root: string, queries: QuerySpec[] =
   if (!semantic.canEmbed() || !semantic.hasVectors()) {
     throw new Error(
       'Mode C needs an embedding index whose provider matches the current config. ' +
-        'Run `node out/node/cli.js embed <dir>` first (same CODEGRAPH_EMBED_MODEL).',
+        'Run `node out/node/cli.js embed <dir>` first (same GRAPHWEFT_EMBED_MODEL).',
     );
   }
   await semantic.trySearch('warm up the pipeline', 1); // load the model outside timings
 
   const results: QueryResult[] = [];
   for (const spec of queries) {
-    // --- A) grep-style, no CodeGraph ---
+    // --- A) grep-style, no Graphweft ---
     const grepStart = performance.now();
     const grepRanked = grepRank(spec.query, textByPath);
     const grepMs = performance.now() - grepStart;
     const grepRead = grepRanked.slice(0, GREP_TOP_FILES);
     const grepTokens = grepRead.reduce((sum, p) => sum + countTokens(textByPath.get(p) ?? ''), 0);
 
-    // --- B) CodeGraph, graph/lexical only ---
+    // --- B) Graphweft, graph/lexical only ---
     const graphStart = performance.now();
     const graphRetrieval = new GraphRetriever(store).retrieve(spec.query, TOKEN_BUDGET);
     const graphMs = performance.now() - graphStart;
     const graphMarkdown = buildContextMarkdown(spec.query, graphRetrieval, TOKEN_BUDGET);
     const graphRanked = graphRetrieval.files.map((r) => r.file.path);
 
-    // --- C) CodeGraph + embeddings (hybrid) ---
+    // --- C) Graphweft + embeddings (hybrid) ---
     const hybridStart = performance.now();
     const chunkMatches = await semantic.trySearch(spec.query, 24);
     const hints = chunkMatches.length > 0 ? { semanticMatches: toFileMatches(chunkMatches) } : {};
@@ -272,8 +272,8 @@ function round(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-/** Store accessor kept separate so the type stays aligned with CodeGraphEngine internals. */
-function engineStore(engine: CodeGraphEngine): ConstructorParameters<typeof GraphRetriever>[0] {
+/** Store accessor kept separate so the type stays aligned with GraphweftEngine internals. */
+function engineStore(engine: GraphweftEngine): ConstructorParameters<typeof GraphRetriever>[0] {
   return (engine as unknown as { store: ConstructorParameters<typeof GraphRetriever>[0] }).store;
 }
 
@@ -318,7 +318,7 @@ const STOPWORDS = new Set([
 
 export function renderRetrievalMarkdown(report: RetrievalBenchmarkReport): string {
   const lines: string[] = [];
-  lines.push('# CodeGraph Retrieval Benchmark — no index vs graph vs graph+embeddings');
+  lines.push('# Graphweft Retrieval Benchmark — no index vs graph vs graph+embeddings');
   lines.push('');
   lines.push(`_Generated ${report.generatedAt} · tokenizer: **${report.encoding}** · budget: ${report.tokenBudget} tokens_`);
   lines.push('');
@@ -327,15 +327,15 @@ export function renderRetrievalMarkdown(report: RetrievalBenchmarkReport): strin
       `${report.indexed.edges} edges; embedding index: ${report.vectorChunks} chunks (\`${report.embeddingProvider}\`).`,
   );
   lines.push('');
-  lines.push('**Modes.** (A) *No CodeGraph* — grep-style term-frequency ranking, agent reads the full text of the top');
-  lines.push(`${GREP_TOP_FILES} matches. (B) *CodeGraph* — graph/lexical retrieval, compact context package. (C) *CodeGraph +`);
+  lines.push('**Modes.** (A) *No Graphweft* — grep-style term-frequency ranking, agent reads the full text of the top');
+  lines.push(`${GREP_TOP_FILES} matches. (B) *Graphweft* — graph/lexical retrieval, compact context package. (C) *Graphweft +`);
   lines.push('embeddings* — same retriever with chunk-level embedding similarity fused in (hybrid RRF). Quality is scored');
   lines.push('against hand-labelled ground-truth files; a hit means a correct file appears in the ranked output.');
   lines.push('');
 
   lines.push('## Headline');
   lines.push('');
-  lines.push('| Metric | A · no CodeGraph | B · CodeGraph | C · CodeGraph + embeddings |');
+  lines.push('| Metric | A · no Graphweft | B · Graphweft | C · Graphweft + embeddings |');
   lines.push('| --- | ---: | ---: | ---: |');
   const t = report.totals;
   lines.push(`| hit@1 | ${pctFmt(t.grep.hitAt1)} | ${pctFmt(t.graph.hitAt1)} | **${pctFmt(t.hybrid.hitAt1)}** |`);

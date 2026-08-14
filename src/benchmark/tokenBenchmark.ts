@@ -1,12 +1,12 @@
 /**
- * Token-savings benchmark: CodeGraph compact context vs naive full-file RAG.
+ * Token-savings benchmark: Graphweft compact context vs naive full-file RAG.
  *
  * Fully offline and reproducible:
  *  - Indexes a directory with the same headless engine the CLI/MCP server use.
  *  - For each realistic dev-task query:
- *      A) CodeGraph: GraphRetriever + buildContextMarkdown (the exact payload the
- *         MCP `codegraph_context` tool returns).
- *      B) Naive RAG baseline: dump the FULL text of the files CodeGraph deemed
+ *      A) Graphweft: GraphRetriever + buildContextMarkdown (the exact payload the
+ *         MCP `graphweft_context` tool returns).
+ *      B) Naive RAG baseline: dump the FULL text of the files Graphweft deemed
  *         relevant — what an agent does when it greps and reads whole files.
  *      C) Grep-style baseline: dump the full text of every file whose content
  *         lexically matches the query keywords (agents without ranking do this).
@@ -18,7 +18,7 @@
  */
 import * as fs from 'fs';
 import * as nodePath from 'path';
-import { CodeGraphEngine } from '../node/codegraphEngine';
+import { GraphweftEngine } from '../node/graphweftEngine';
 import { GraphRetriever } from '../graph/graphRetriever';
 import { buildContextMarkdown } from '../compressor/contextCompressor';
 import { scanDirectory } from '../node/nodeScanner';
@@ -30,8 +30,8 @@ const { countTokens } = require('gpt-tokenizer/encoding/o200k_base') as { countT
 
 interface TaskResult {
   task: string;
-  codegraphTokens: number;
-  naiveTokens: number;      // full text of CodeGraph's own relevant files
+  graphweftTokens: number;
+  naiveTokens: number;      // full text of Graphweft's own relevant files
   grepTokens: number;       // full text of keyword-matched files
   filesInContext: number;
   naiveFiles: number;
@@ -48,7 +48,7 @@ export interface BenchmarkReport {
   indexed: { files: number; symbols: number; edges: number };
   tasks: TaskResult[];
   totals: {
-    codegraphTokens: number;
+    graphweftTokens: number;
     naiveTokens: number;
     grepTokens: number;
     savingsVsNaivePct: number;
@@ -71,7 +71,7 @@ export const DEFAULT_TASKS = [
 const TOKEN_BUDGET = 6000;
 
 export async function runBenchmark(root: string, tasks: string[] = DEFAULT_TASKS): Promise<BenchmarkReport> {
-  const engine = new CodeGraphEngine();
+  const engine = new GraphweftEngine();
   const summary = await engine.indexDirectory(root);
   const sources = await scanDirectory(root);
   const textByPath = new Map(sources.map((s) => [s.workspaceRelativePath, s.text]));
@@ -80,9 +80,9 @@ export async function runBenchmark(root: string, tasks: string[] = DEFAULT_TASKS
   for (const task of tasks) {
     const retrieval = new GraphRetriever(engineStore(engine)).retrieve(task, TOKEN_BUDGET);
     const contextMarkdown = buildContextMarkdown(task, retrieval, TOKEN_BUDGET);
-    const codegraphTokens = countTokens(contextMarkdown);
+    const graphweftTokens = countTokens(contextMarkdown);
 
-    // Baseline A: naive RAG = full contents of the files CodeGraph flagged relevant.
+    // Baseline A: naive RAG = full contents of the files Graphweft flagged relevant.
     const relevantPaths = retrieval.files.map((r) => r.file.path);
     const naiveTokens = relevantPaths.reduce((sum, p) => sum + countTokens(textByPath.get(p) ?? ''), 0);
 
@@ -92,18 +92,18 @@ export async function runBenchmark(root: string, tasks: string[] = DEFAULT_TASKS
 
     results.push({
       task,
-      codegraphTokens,
+      graphweftTokens,
       naiveTokens,
       grepTokens,
       filesInContext: relevantPaths.length,
       naiveFiles: relevantPaths.length,
       grepFiles: grepPaths.length,
-      savingsVsNaivePct: pct(codegraphTokens, naiveTokens),
-      savingsVsGrepPct: pct(codegraphTokens, grepTokens),
+      savingsVsNaivePct: pct(graphweftTokens, naiveTokens),
+      savingsVsGrepPct: pct(graphweftTokens, grepTokens),
     });
   }
 
-  const totalCg = results.reduce((s, r) => s + r.codegraphTokens, 0);
+  const totalCg = results.reduce((s, r) => s + r.graphweftTokens, 0);
   const totalNaive = results.reduce((s, r) => s + r.naiveTokens, 0);
   const totalGrep = results.reduce((s, r) => s + r.grepTokens, 0);
 
@@ -115,7 +115,7 @@ export async function runBenchmark(root: string, tasks: string[] = DEFAULT_TASKS
     indexed: summary,
     tasks: results,
     totals: {
-      codegraphTokens: totalCg,
+      graphweftTokens: totalCg,
       naiveTokens: totalNaive,
       grepTokens: totalGrep,
       savingsVsNaivePct: pct(totalCg, totalNaive),
@@ -124,8 +124,8 @@ export async function runBenchmark(root: string, tasks: string[] = DEFAULT_TASKS
   };
 }
 
-/** Store accessor kept separate so the type stays aligned with CodeGraphEngine internals. */
-function engineStore(engine: CodeGraphEngine): ConstructorParameters<typeof GraphRetriever>[0] {
+/** Store accessor kept separate so the type stays aligned with GraphweftEngine internals. */
+function engineStore(engine: GraphweftEngine): ConstructorParameters<typeof GraphRetriever>[0] {
   return (engine as unknown as { store: ConstructorParameters<typeof GraphRetriever>[0] }).store;
 }
 
@@ -158,26 +158,26 @@ const STOPWORDS = new Set(['does', 'after', 'where', 'when', 'what', 'with', 'th
 
 export function renderMarkdown(report: BenchmarkReport): string {
   const lines: string[] = [];
-  lines.push('# CodeGraph Token-Savings Benchmark');
+  lines.push('# Graphweft Token-Savings Benchmark');
   lines.push('');
   lines.push(`_Generated ${report.generatedAt} · tokenizer: **${report.encoding}** · budget: ${report.tokenBudget} tokens_`);
   lines.push('');
   lines.push(`Indexed **${report.indexed.files} files**, ${report.indexed.symbols} symbols, ${report.indexed.edges} edges from \`${report.root}\`.`);
   lines.push('');
-  lines.push('**Method.** For each task: (A) the exact compact context package the MCP `codegraph_context` tool returns;');
-  lines.push('(B) *naive RAG* — the full text of the same files CodeGraph ranked relevant; (C) *grep-style* — the full text');
+  lines.push('**Method.** For each task: (A) the exact compact context package the MCP `graphweft_context` tool returns;');
+  lines.push('(B) *naive RAG* — the full text of the same files Graphweft ranked relevant; (C) *grep-style* — the full text');
   lines.push('of every file lexically matching the query keywords (what an unranked agent reads). Token counts are real BPE');
   lines.push('counts, not estimates.');
   lines.push('');
-  lines.push('| Task | CodeGraph | Naive RAG | Grep-style | vs naive | vs grep |');
+  lines.push('| Task | Graphweft | Naive RAG | Grep-style | vs naive | vs grep |');
   lines.push('| --- | ---: | ---: | ---: | ---: | ---: |');
   for (const t of report.tasks) {
     lines.push(
-      `| ${t.task} | ${fmt(t.codegraphTokens)} | ${fmt(t.naiveTokens)} (${t.naiveFiles}f) | ${fmt(t.grepTokens)} (${t.grepFiles}f) | **${t.savingsVsNaivePct}%** | **${t.savingsVsGrepPct}%** |`,
+      `| ${t.task} | ${fmt(t.graphweftTokens)} | ${fmt(t.naiveTokens)} (${t.naiveFiles}f) | ${fmt(t.grepTokens)} (${t.grepFiles}f) | **${t.savingsVsNaivePct}%** | **${t.savingsVsGrepPct}%** |`,
     );
   }
   lines.push(
-    `| **Total** | **${fmt(report.totals.codegraphTokens)}** | **${fmt(report.totals.naiveTokens)}** | **${fmt(report.totals.grepTokens)}** | **${report.totals.savingsVsNaivePct}%** | **${report.totals.savingsVsGrepPct}%** |`,
+    `| **Total** | **${fmt(report.totals.graphweftTokens)}** | **${fmt(report.totals.naiveTokens)}** | **${fmt(report.totals.grepTokens)}** | **${report.totals.savingsVsNaivePct}%** | **${report.totals.savingsVsGrepPct}%** |`,
   );
   lines.push('');
   lines.push('## Honest caveats');

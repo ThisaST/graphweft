@@ -1,4 +1,4 @@
-import { CodeGraphFile, CodeSymbol } from '../graph/graphTypes';
+import { GraphweftFile, CodeSymbol } from '../graph/graphTypes';
 import { buildFileGraph, buildSymbolReferences, communityLabels, computeDegrees, symbolUsageCounts } from '../graph/graphAlgorithms';
 
 export interface GraphReport {
@@ -14,7 +14,7 @@ export interface GraphReport {
   suggestedQuestions: string[];
 }
 
-export function buildGraphReport(files: CodeGraphFile[]): GraphReport {
+export function buildGraphReport(files: GraphweftFile[]): GraphReport {
   const graph = buildFileGraph(files);
   const degrees = computeDegrees(graph);
   const labels = communityLabels(graph);
@@ -55,7 +55,7 @@ export function buildGraphReport(files: CodeGraphFile[]): GraphReport {
 
 export function renderGraphReportMarkdown(report: GraphReport): string {
   const lines: string[] = [];
-  lines.push(`# CodeGraph Report`);
+  lines.push(`# Graphweft Report`);
   lines.push(``);
   lines.push(`_Generated locally on ${report.generatedAt}. No data left your machine._`);
   lines.push(``);
@@ -123,7 +123,7 @@ export function renderGraphReportMarkdown(report: GraphReport): string {
   return lines.join('\n');
 }
 
-function findSurprisingConnections(files: CodeGraphFile[], labels: Map<string, number>): Array<{ from: string; to: string; reason: string }> {
+function findSurprisingConnections(files: GraphweftFile[], labels: Map<string, number>): Array<{ from: string; to: string; reason: string }> {
   const surprises: Array<{ from: string; to: string; reason: string }> = [];
   const byPath = new Map(files.map((f) => [f.path, f]));
 
@@ -154,16 +154,16 @@ function findSurprisingConnections(files: CodeGraphFile[], labels: Map<string, n
   return surprises.slice(0, 10);
 }
 
-function suggestQuestions(files: CodeGraphFile[], godPaths: string[]): string[] {
+function suggestQuestions(files: GraphweftFile[], godPaths: string[]): string[] {
   const questions: string[] = [];
   for (const path of godPaths.slice(0, 3)) {
-    questions.push(`@codegraph explain how \`${path}\` is used across the project`);
+    questions.push(`@graphweft explain how \`${path}\` is used across the project`);
   }
   const testish = files.find((f) => /test|spec/u.test(f.path));
-  if (testish) questions.push(`@codegraph add tests near \`${testish.path}\``);
+  if (testish) questions.push(`@graphweft add tests near \`${testish.path}\``);
   const controllerish = files.find((f) => f.symbols.some((s: CodeSymbol) => s.type === 'nestjsController' || /controller|router|handler/iu.test(s.name)));
-  if (controllerish) questions.push(`@codegraph trace a request through \`${controllerish.path}\``);
-  questions.push(`@codegraph review my current changes`);
+  if (controllerish) questions.push(`@graphweft trace a request through \`${controllerish.path}\``);
+  questions.push(`@graphweft review my current changes`);
   questions.push(`/path src/a.ts src/b.ts — find a connection between any two files`);
   return questions.slice(0, 6);
 }

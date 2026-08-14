@@ -39,8 +39,8 @@ export class GraphWebview {
     }
 
     this.panel = vscode.window.createWebviewPanel(
-      'codegraph.graphView',
-      'CodeGraph: Local Graph',
+      'graphweft.graphView',
+      'Graphweft: Local Graph',
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
@@ -57,7 +57,7 @@ export class GraphWebview {
       if (msg?.type === 'open' && typeof msg.path === 'string') {
         await openFile(msg.path);
       } else if (msg?.type === 'ask' && typeof msg.path === 'string') {
-        await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@codegraph explain ${msg.path}` });
+        await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@graphweft explain ${msg.path}` });
       } else if (msg?.type === 'impact' && typeof msg.path === 'string') {
         const impacted = impactSet(buildFileGraph(this.store.getFiles()), msg.path, 4);
         await vscode.window.showInformationMessage(`Impact set for ${msg.path}: ${impacted.length} files`, { modal: false });
@@ -92,7 +92,7 @@ export class GraphWebview {
     const webview = this.panel.webview;
     const files = this.store.getFiles();
     if (files.length === 0) {
-      webview.html = emptyHtml('CodeGraph has no local index yet. Run `CodeGraph: Build Local Index` first.');
+      webview.html = emptyHtml('Graphweft has no local index yet. Run `Graphweft: Build Local Index` first.');
       return;
     }
 
@@ -112,12 +112,12 @@ export class GraphWebview {
       .replace(/\$\{cytoscapeUri\}/g, cytoscapeUri.toString())
       .replace(/\$\{scriptUri\}/g, scriptUri.toString())
       .replace(/\$LOCK_BADGE\$/g, '🔒 local-only render')
-      .replace('<script nonce="', `<script nonce="${nonce}">window.__codegraphData__=${JSON.stringify(graphJson)};</script><script nonce="`);
+      .replace('<script nonce="', `<script nonce="${nonce}">window.__graphweftData__=${JSON.stringify(graphJson)};</script><script nonce="`);
 
     webview.html = html;
   }
 
-  private buildGraphJson(files: import('../graph/graphTypes').CodeGraphFile[], filter?: string): GraphJson {
+  private buildGraphJson(files: import('../graph/graphTypes').GraphweftFile[], filter?: string): GraphJson {
     const graph = buildFileGraph(files);
     const degrees = new Map(computeDegrees(graph).map((d) => [d.path, d]));
     const labels = communityLabels(graph);
@@ -165,7 +165,7 @@ async function openFile(workspacePath: string): Promise<void> {
       // try next folder
     }
   }
-  vscode.window.showWarningMessage(`CodeGraph: could not open ${workspacePath}`);
+  vscode.window.showWarningMessage(`Graphweft: could not open ${workspacePath}`);
 }
 
 function emptyHtml(message: string): string {

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { buildCodeGraphPrompt } from '../chat/promptBuilder';
-import { buildCodeGraphContextPackage } from '../context/contextCompressor';
+import { buildGraphweftPrompt } from '../chat/promptBuilder';
+import { buildGraphweftContextPackage } from '../context/contextCompressor';
 import { classifyTask } from '../context/taskClassifier';
 import { RetrievalResult } from '../graph/graphTypes';
 
@@ -49,7 +49,7 @@ function runTests(): void {
     estimatedTokens: 0,
   };
 
-  const contextPackage = buildCodeGraphContextPackage({
+  const contextPackage = buildGraphweftContextPackage({
     task: 'review my current changes',
     taskType: 'code_review',
     retrieval,
@@ -65,9 +65,9 @@ function runTests(): void {
   assert.strictEqual(contextPackage.relevantFiles[0]?.path, 'src/login.ts');
   assert.ok(contextPackage.snippets.some((snippet) => snippet.filePath === 'git diff'), 'review context should include git diff snippet');
 
-  const prompt = buildCodeGraphPrompt({ contextPackage });
-  assert.ok(prompt.includes('Use the provided CodeGraph context first'), 'prompt should include reliability rule');
-  assert.ok(prompt.includes('codegraph_runInTerminal'), 'prompt should advertise the agent tools');
+  const prompt = buildGraphweftPrompt({ contextPackage });
+  assert.ok(prompt.includes('Use the provided Graphweft context first'), 'prompt should include reliability rule');
+  assert.ok(prompt.includes('graphweft_runInTerminal'), 'prompt should advertise the agent tools');
   assert.ok(prompt.includes('"taskType": "code_review"'), 'prompt should include structured context package');
 }
 

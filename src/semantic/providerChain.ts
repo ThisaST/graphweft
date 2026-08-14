@@ -48,7 +48,7 @@ export async function resolveEmbeddingProvider(
   factories?: EmbeddingProviderFactories,
 ): Promise<EmbeddingProvider | undefined> {
   const active = factories ?? config.factories ?? defaultFactories;
-  const runtime = config.runtime ?? (process.env.CODEGRAPH_EMBED_RUNTIME as EmbeddingRuntime | undefined) ?? 'auto';
+  const runtime = config.runtime ?? (process.env.GRAPHWEFT_EMBED_RUNTIME as EmbeddingRuntime | undefined) ?? 'auto';
   if (runtime === 'off') return undefined;
 
   if (runtime === 'local' || runtime === 'auto') {

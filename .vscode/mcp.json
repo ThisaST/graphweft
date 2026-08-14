@@ -1,6 +1,6 @@
 {
   "servers": {
-    "codegraph": {
+    "graphweft": {
       "type": "stdio",
       "command": "node",
       "args": ["${workspaceFolder}/out/mcp/server.js", "${workspaceFolder}"]

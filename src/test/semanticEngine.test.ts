@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraphEngine } from '../node/codegraphEngine';
+import { GraphweftEngine } from '../node/graphweftEngine';
 import { EmbeddingProvider } from '../semantic/embeddingProvider';
 import { toFileMatches } from '../semantic/headlessSemanticIndex';
 import { EmbeddingProviderFactories } from '../semantic/providerChain';
@@ -33,8 +33,8 @@ const fakeFactories: EmbeddingProviderFactories = {
 };
 
 async function run(): Promise<void> {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-eng-'));
-  process.env.CODEGRAPH_CACHE_DIR = path.join(temp, 'cache');
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'graphweft-eng-'));
+  process.env.GRAPHWEFT_CACHE_DIR = path.join(temp, 'cache');
   const repo = path.join(temp, 'repo');
   fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
 
@@ -60,7 +60,7 @@ async function run(): Promise<void> {
   fs.writeFileSync(path.join(repo, 'src', 'misc.ts'), 'export const helper = 1;\n');
 
   try {
-    const engine = new CodeGraphEngine({ semantic: { factories: fakeFactories } });
+    const engine = new GraphweftEngine({ semantic: { factories: fakeFactories } });
     await engine.indexDirectory(repo);
 
     // --- build ---
@@ -129,7 +129,7 @@ async function run(): Promise<void> {
 
     console.log('semanticEngine.test.ts passed');
   } finally {
-    delete process.env.CODEGRAPH_CACHE_DIR;
+    delete process.env.GRAPHWEFT_CACHE_DIR;
     fs.rmSync(temp, { recursive: true, force: true });
   }
 }

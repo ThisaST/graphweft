@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import { chunkFile, hashChunk } from '../semantic/codeChunker';
-import { CodeGraphFile, CodeSymbol } from '../graph/graphTypes';
+import { GraphweftFile, CodeSymbol } from '../graph/graphTypes';
 
-function file(partial: Partial<CodeGraphFile> & { path: string }): CodeGraphFile {
+function file(partial: Partial<GraphweftFile> & { path: string }): GraphweftFile {
   return {
     uri: `file:///${partial.path}`,
     path: partial.path,

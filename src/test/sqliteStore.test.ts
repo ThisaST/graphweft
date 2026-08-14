@@ -101,7 +101,7 @@ async function runTests(): Promise<void> {
   installVscodeMock();
 
   const { SqliteGraphStore } = require('../graph/sqliteGraphStore') as typeof import('../graph/sqliteGraphStore');
-  const storagePath = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-sqlite-test-'));
+  const storagePath = await fs.mkdtemp(path.join(os.tmpdir(), 'graphweft-sqlite-test-'));
   const storageUri = {
     fsPath: storagePath,
     toString: () => `file://${storagePath}`,
@@ -122,7 +122,7 @@ async function runTests(): Promise<void> {
   await firstStore.initialize();
   await firstStore.replace(files);
 
-  const databaseBytes = await fs.readFile(path.join(storagePath, 'codegraph.sqlite'));
+  const databaseBytes = await fs.readFile(path.join(storagePath, 'graphweft.sqlite'));
   assert.ok(databaseBytes.length > 0, 'SQLite database file should be persisted');
 
   const secondStore = new SqliteGraphStore(storageUri as unknown as import('vscode').Uri);

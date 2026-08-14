@@ -1,12 +1,12 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import initSqlJs, { Database, QueryExecResult, SqlJsStatic } from 'sql.js';
-import { CodeGraphFile, CodeSymbol, ImportReference, IndexedWorkspace } from './graphTypes';
+import { GraphweftFile, CodeSymbol, ImportReference, IndexedWorkspace } from './graphTypes';
 import { buildFileGraph } from './graphAlgorithms';
 import { GraphStore } from './graphStore';
 
 const schemaVersion = 3;
-const databaseFileName = 'codegraph.sqlite';
+const databaseFileName = 'graphweft.sqlite';
 
 interface FileRow {
   id: number;
@@ -81,7 +81,7 @@ export class SqliteGraphStore implements GraphStore {
     await this.persist();
   }
 
-  public async replace(files: CodeGraphFile[]): Promise<void> {
+  public async replace(files: GraphweftFile[]): Promise<void> {
     const database = this.getDatabase();
     database.exec('BEGIN TRANSACTION;');
 
@@ -102,7 +102,7 @@ export class SqliteGraphStore implements GraphStore {
     await this.persist();
   }
 
-  public async upsert(files: CodeGraphFile[], removedPaths: string[] = []): Promise<void> {
+  public async upsert(files: GraphweftFile[], removedPaths: string[] = []): Promise<void> {
     if (files.length === 0 && removedPaths.length === 0) {
       return;
     }
@@ -156,7 +156,7 @@ export class SqliteGraphStore implements GraphStore {
     return hashes;
   }
 
-  private mergeWorkspaceFiles(updated: CodeGraphFile[], removedPaths: string[]): CodeGraphFile[] {
+  private mergeWorkspaceFiles(updated: GraphweftFile[], removedPaths: string[]): GraphweftFile[] {
     const removed = new Set(removedPaths);
     const updatedByPath = new Map(updated.map((file) => [file.path, file]));
     const kept = (this.workspace?.files ?? []).filter(
@@ -180,11 +180,11 @@ export class SqliteGraphStore implements GraphStore {
     return this.workspace;
   }
 
-  public getFiles(): CodeGraphFile[] {
+  public getFiles(): GraphweftFile[] {
     return this.workspace?.files ?? [];
   }
 
-  public getFile(filePath: string): CodeGraphFile | undefined {
+  public getFile(filePath: string): GraphweftFile | undefined {
     return this.getFiles().find((file) => file.path === filePath);
   }
 
@@ -210,12 +210,12 @@ export class SqliteGraphStore implements GraphStore {
     const currentVersion = this.readUserVersion();
 
     if (currentVersion > schemaVersion) {
-      throw new Error(`CodeGraph index database schema ${currentVersion} is newer than this extension supports.`);
+      throw new Error(`Graphweft index database schema ${currentVersion} is newer than this extension supports.`);
     }
 
     // Older schema present: the index is fully derived from the workspace and cheap to
     // rebuild, so drop everything and recreate at the current version rather than writing
-    // per-version ALTER migrations. A `CodeGraph: Build Local Index` repopulates it.
+    // per-version ALTER migrations. A `Graphweft: Build Local Index` repopulates it.
     if (currentVersion > 0 && currentVersion < schemaVersion) {
       database.exec('DROP TABLE IF EXISTS edges; DROP TABLE IF EXISTS imports; DROP TABLE IF EXISTS symbols; DROP TABLE IF EXISTS files;');
     }
@@ -277,7 +277,7 @@ export class SqliteGraphStore implements GraphStore {
     return typeof value === 'number' ? value : 0;
   }
 
-  private insertFiles(files: CodeGraphFile[]): void {
+  private insertFiles(files: GraphweftFile[]): void {
     const database = this.getDatabase();
     const insertFile = database.prepare('INSERT INTO files (uri, path, decorators_json, module, content_hash) VALUES (?, ?, ?, ?, ?);');
     const insertSymbol = database.prepare(`
@@ -329,7 +329,7 @@ export class SqliteGraphStore implements GraphStore {
     }
   }
 
-  private insertEdges(files: CodeGraphFile[]): void {
+  private insertEdges(files: GraphweftFile[]): void {
     const database = this.getDatabase();
     const fileIds = new Map<string, number>();
     const fileRows = readRows<FileRow>(database.exec('SELECT id, uri, path, decorators_json, module, content_hash FROM files;')[0]);
@@ -367,7 +367,7 @@ export class SqliteGraphStore implements GraphStore {
 
     const symbolsByFile = groupByFileId(readRows<SymbolRow>(database.exec('SELECT * FROM symbols ORDER BY start_line, name;')[0]));
     const importsByFile = groupByFileId(readRows<ImportRow>(database.exec('SELECT * FROM imports ORDER BY line, specifier;')[0]));
-    const files = fileRows.map((fileRow): CodeGraphFile => ({
+    const files = fileRows.map((fileRow): GraphweftFile => ({
       uri: fileRow.uri,
       path: fileRow.path,
       decorators: parseJsonArray(fileRow.decorators_json),
@@ -411,7 +411,7 @@ export class SqliteGraphStore implements GraphStore {
 
   private getDatabase(): Database {
     if (!this.database) {
-      throw new Error('CodeGraph SQLite store has not been initialized.');
+      throw new Error('Graphweft SQLite store has not been initialized.');
     }
 
     return this.database;

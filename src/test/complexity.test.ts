@@ -1,9 +1,9 @@
 import * as assert from 'assert';
 import { assessComplexity, ComplexityTier } from '../context/complexityScorer';
-import { CodeGraphContextPackage } from '../context/contextPackage';
+import { GraphweftContextPackage } from '../context/contextPackage';
 import { TaskType } from '../context/taskClassifier';
 
-function pkg(partial: Partial<CodeGraphContextPackage> = {}): CodeGraphContextPackage {
+function pkg(partial: Partial<GraphweftContextPackage> = {}): GraphweftContextPackage {
   return {
     task: partial.task ?? 'task',
     taskType: partial.taskType ?? 'feature_change',
@@ -16,11 +16,11 @@ function pkg(partial: Partial<CodeGraphContextPackage> = {}): CodeGraphContextPa
   };
 }
 
-function file(path: string): CodeGraphContextPackage['relevantFiles'][number] {
+function file(path: string): GraphweftContextPackage['relevantFiles'][number] {
   return { path, reason: 'r', score: 10 };
 }
 
-function assess(task: string, taskType: TaskType, p: Partial<CodeGraphContextPackage> = {}): ComplexityTier {
+function assess(task: string, taskType: TaskType, p: Partial<GraphweftContextPackage> = {}): ComplexityTier {
   return assessComplexity({ task, taskType, contextPackage: pkg({ ...p, task, taskType }) }).tier;
 }
 

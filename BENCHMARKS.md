@@ -1,18 +1,18 @@
-# CodeGraph Token-Savings Benchmark
+# Graphweft Token-Savings Benchmark
 
 > See also [AGENT_BENCHMARKS.md](AGENT_BENCHMARKS.md) for the agent-in-the-loop benchmark:
-> real Claude Code / Copilot CLI agents with and without the codegraph MCP server.
+> real Claude Code / Copilot CLI agents with and without the graphweft MCP server.
 
 _Generated 2026-08-12T18:24:30.811Z · tokenizer: **o200k_base (GPT-4o / o-series)** · budget: 6000 tokens_
 
-Indexed **91 files**, 620 symbols, 217 edges from `C:\Users\dtp\Development\ElementLogic\copilot-worktrees\codegraph-copilet-chat-main\thisara-sturdy-doodle`.
+Indexed **91 files**, 620 symbols, 217 edges from `C:\Users\dtp\Development\ElementLogic\copilot-worktrees\graphweft-copilet-chat-main\thisara-sturdy-doodle`.
 
-**Method.** For each task: (A) the exact compact context package the MCP `codegraph_context` tool returns;
-(B) *naive RAG* — the full text of the same files CodeGraph ranked relevant; (C) *grep-style* — the full text
+**Method.** For each task: (A) the exact compact context package the MCP `graphweft_context` tool returns;
+(B) *naive RAG* — the full text of the same files Graphweft ranked relevant; (C) *grep-style* — the full text
 of every file lexically matching the query keywords (what an unranked agent reads). Token counts are real BPE
 counts, not estimates.
 
-| Task | CodeGraph | Naive RAG | Grep-style | vs naive | vs grep |
+| Task | Graphweft | Naive RAG | Grep-style | vs naive | vs grep |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | explain how the login flow works | 2,724 | 29,087 (16f) | 17,772 (10f) | **90.6%** | **84.7%** |
 | add a new slash command to the chat participant | 3,614 | 31,851 (16f) | 51,861 (21f) | **88.7%** | **93%** |
@@ -51,10 +51,10 @@ Where the token benchmark above measures **cost**, this one measures **whether t
 are found at all**, across three retrieval modes on this repo (102 files, 726 symbols,
 250 import edges; embedding index: 695 chunks):
 
-- **A · No CodeGraph** — grep-style term-frequency ranking; the agent reads the full text of
+- **A · No Graphweft** — grep-style term-frequency ranking; the agent reads the full text of
   the top 5 matches. (Generous: real unranked grep does worse.)
-- **B · CodeGraph** — graph/lexical retrieval (keyword + PageRank + RRF), compact context package.
-- **C · CodeGraph + embeddings** — the same retriever with chunk-level embedding similarity
+- **B · Graphweft** — graph/lexical retrieval (keyword + PageRank + RRF), compact context package.
+- **C · Graphweft + embeddings** — the same retriever with chunk-level embedding similarity
   fused in. Fully local: `jinaai/jina-embeddings-v2-base-code`, quantized ONNX, in-process.
 
 12 queries with hand-labelled ground-truth files: 5 **lexical** (query words appear in the
@@ -63,7 +63,7 @@ of disk change notifications"* → `fileWatcher.ts`).
 
 ## Headline
 
-| Metric | A · no CodeGraph | B · CodeGraph | C · CodeGraph + embeddings |
+| Metric | A · no Graphweft | B · Graphweft | C · Graphweft + embeddings |
 | --- | ---: | ---: | ---: |
 | hit@1 | 17% | 33% | **50%** |
 | hit@5 | 67% | 42% | **67%** |
@@ -94,7 +94,7 @@ gap (43%) while keeping the compact package.
 Diagnostic column: rank of the correct file in the **raw embedding results** before fusion.
 The embedding alone put a ground-truth file at **#1 on 9 of 12 queries** — including 4 of 7
 conceptual ones. The chunk-level hits (exact symbol + line range) are exposed directly via
-`codegraph semantic` / MCP `codegraph_semantic_search`:
+`graphweft semantic` / MCP `graphweft_semantic_search`:
 
 | Query (conceptual subset) | B rank | C rank | emb only |
 | --- | ---: | ---: | ---: |
@@ -105,7 +105,7 @@ conceptual ones. The chunk-level hits (exact symbol + line range) are exposed di
 | apply a code edit even when indentation differs | miss | 5 | 3 |
 
 Takeaway: for conceptual questions, agents get the best results from the dedicated
-`codegraph_semantic_search` tool (raw chunk hits), while `codegraph_context` / `search` give
+`graphweft_semantic_search` tool (raw chunk hits), while `graphweft_context` / `search` give
 the balanced hybrid package. The current RRF fusion is conservative — a known tuning
 opportunity, since the pure embedding signal is frequently correct on its own.
 

@@ -86,11 +86,11 @@ async function run(): Promise<void> {
 
   {
     assert.strictEqual(resolveLocalModel('custom/model'), 'custom/model');
-    delete process.env.CODEGRAPH_EMBED_MODEL;
+    delete process.env.GRAPHWEFT_EMBED_MODEL;
     assert.strictEqual(resolveLocalModel(), DEFAULT_LOCAL_MODEL);
-    process.env.CODEGRAPH_EMBED_MODEL = 'env/model';
+    process.env.GRAPHWEFT_EMBED_MODEL = 'env/model';
     assert.strictEqual(resolveLocalModel(), 'env/model');
-    delete process.env.CODEGRAPH_EMBED_MODEL;
+    delete process.env.GRAPHWEFT_EMBED_MODEL;
   }
 
   {
@@ -159,8 +159,8 @@ async function run(): Promise<void> {
 
   {
     // disk round-trip.
-    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-vec-'));
-    process.env.CODEGRAPH_CACHE_DIR = temp;
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'graphweft-vec-'));
+    process.env.GRAPHWEFT_CACHE_DIR = temp;
     try {
       const repo = path.join(temp, 'repo');
       const store = await SqliteVectorStore.open(repo);
@@ -185,7 +185,7 @@ async function run(): Promise<void> {
       const empty = await SqliteVectorStore.open(repo);
       assert.strictEqual(empty.stats().chunks, 0, 'wipe removes the on-disk database');
     } finally {
-      delete process.env.CODEGRAPH_CACHE_DIR;
+      delete process.env.GRAPHWEFT_CACHE_DIR;
       fs.rmSync(temp, { recursive: true, force: true });
     }
   }

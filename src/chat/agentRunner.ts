@@ -16,7 +16,7 @@ export interface AgentRunOptions {
   maxRounds?: number;
   /**
    * The original user request. When set and the loop stops at the step limit, the runner
-   * renders an in-chat **Continue** button that re-runs this query through @codegraph so
+   * renders an in-chat **Continue** button that re-runs this query through @graphweft so
    * the agent can pick the task back up — instead of forcing the user to retype it.
    */
   continueQuery?: string;
@@ -50,9 +50,9 @@ const DEFAULT_MAX_ROUNDS = 8;
  * a tool, invoke that tool (which may show an inline confirmation), feed the
  * result back, and repeat until the model answers without requesting a tool.
  *
- * This is the piece that turns CodeGraph from a read-only responder into an
+ * This is the piece that turns Graphweft from a read-only responder into an
  * agent that can actually run commands and edit files — the same loop Copilot's
- * built-in agent runs, but here under CodeGraph's own control.
+ * built-in agent runs, but here under Graphweft's own control.
  */
 export async function runAgentLoop(options: AgentRunOptions): Promise<AgentRunResult> {
   const maxRounds = options.maxRounds ?? DEFAULT_MAX_ROUNDS;
@@ -170,8 +170,8 @@ export async function runAgentLoop(options: AgentRunOptions): Promise<AgentRunRe
 
   options.stream.markdown(
     stuck
-      ? `\n\n> ℹ️ CodeGraph stopped early — the model kept repeating the same tool call. Answered with what was gathered so far.\n`
-      : `\n\n> ℹ️ CodeGraph reached the ${maxRounds}-step tool limit for this request. Answered with what was gathered so far.\n`,
+      ? `\n\n> ℹ️ Graphweft stopped early — the model kept repeating the same tool call. Answered with what was gathered so far.\n`
+      : `\n\n> ℹ️ Graphweft reached the ${maxRounds}-step tool limit for this request. Answered with what was gathered so far.\n`,
   );
   // Offer a one-click Continue. We submit a short "continue" prompt rather than the
   // verbatim original question, so the chat doesn't show a confusing duplicate of what the
@@ -181,7 +181,7 @@ export async function runAgentLoop(options: AgentRunOptions): Promise<AgentRunRe
     options.stream.button({
       command: 'workbench.action.chat.open',
       title: '▶ Continue',
-      arguments: [{ query: '@codegraph continue the previous request' }],
+      arguments: [{ query: '@graphweft continue the previous request' }],
     });
   } else {
     options.stream.markdown('> Ask a follow-up to continue.\n');
@@ -268,15 +268,15 @@ function stableStringify(value: unknown): string {
 
 function friendlyName(toolName: string): string {
   const map: Record<string, string> = {
-    codegraph_runInTerminal: 'Running command',
-    codegraph_readFile: 'Reading file',
-    codegraph_writeFile: 'Writing file',
-    codegraph_replaceInFile: 'Editing file',
-    codegraph_listDirectory: 'Listing directory',
-    codegraph_findFiles: 'Searching for files',
-    codegraph_impact: 'Computing impact set',
-    codegraph_dependencyPath: 'Tracing dependency path',
-    codegraph_godNodes: 'Finding hub files',
+    graphweft_runInTerminal: 'Running command',
+    graphweft_readFile: 'Reading file',
+    graphweft_writeFile: 'Writing file',
+    graphweft_replaceInFile: 'Editing file',
+    graphweft_listDirectory: 'Listing directory',
+    graphweft_findFiles: 'Searching for files',
+    graphweft_impact: 'Computing impact set',
+    graphweft_dependencyPath: 'Tracing dependency path',
+    graphweft_godNodes: 'Finding hub files',
   };
   return map[toolName] ?? `Using ${toolName}`;
 }
@@ -307,17 +307,17 @@ function renderToolActivity(
   }
 
   switch (call.name) {
-    case 'codegraph_runInTerminal':
+    case 'graphweft_runInTerminal':
       renderTerminal(stream, text);
       return;
-    case 'codegraph_readFile':
+    case 'graphweft_readFile':
       renderRead(stream, call, text);
       return;
-    case 'codegraph_findFiles':
+    case 'graphweft_findFiles':
       renderFileList(stream, text);
       return;
-    case 'codegraph_writeFile':
-    case 'codegraph_replaceInFile':
+    case 'graphweft_writeFile':
+    case 'graphweft_replaceInFile':
       renderEdit(stream, call, text);
       return;
     default:

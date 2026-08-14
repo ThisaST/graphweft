@@ -1,4 +1,4 @@
-import { CodeGraphContextPackage } from './contextPackage';
+import { GraphweftContextPackage } from './contextPackage';
 import { TaskType } from './taskClassifier';
 
 /**
@@ -58,12 +58,12 @@ const INFORMATIONAL = /\b(what is|what are|what does|what's|whats|purpose of|use
 /**
  * Score a query's likely difficulty entirely locally — no model call, no data
  * leaves the machine. Combines the task type, query wording, and the size of the
- * context CodeGraph already assembled (file/symbol/snippet counts).
+ * context Graphweft already assembled (file/symbol/snippet counts).
  */
 export function assessComplexity(input: {
   task: string;
   taskType: TaskType;
-  contextPackage: CodeGraphContextPackage;
+  contextPackage: GraphweftContextPackage;
 }): ComplexityAssessment {
   const { task, taskType, contextPackage } = input;
   const normalized = task.toLowerCase();
@@ -118,7 +118,7 @@ export function assessComplexity(input: {
     signals.unshift('informational lookup');
   }
 
-  // Size of the context CodeGraph assembled is a strong difficulty proxy — but only
+  // Size of the context Graphweft assembled is a strong difficulty proxy — but only
   // when the request isn't a plain operational/informational ask.
   const files = contextPackage.relevantFiles.length;
   const snippets = contextPackage.snippets.length;

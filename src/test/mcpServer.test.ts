@@ -13,7 +13,7 @@ interface JsonRpcResponse {
 
 async function runTests(): Promise<void> {
   // Build a tiny workspace on disk.
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-mcp-test-'));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'graphweft-mcp-test-'));
   await fs.mkdir(path.join(root, 'src'), { recursive: true });
   await fs.writeFile(
     path.join(root, 'src', 'user.service.ts'),
@@ -26,10 +26,10 @@ async function runTests(): Promise<void> {
 
   const serverPath = path.join(__dirname, '..', 'mcp', 'server.js');
   // Deterministic semantic behavior: no embedding backend, and an isolated vector-cache dir.
-  const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codegraph-mcp-cache-'));
+  const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'graphweft-mcp-cache-'));
   const child = spawn(process.execPath, [serverPath, root], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, CODEGRAPH_EMBED_RUNTIME: 'off', CODEGRAPH_CACHE_DIR: cacheDir },
+    env: { ...process.env, GRAPHWEFT_EMBED_RUNTIME: 'off', GRAPHWEFT_CACHE_DIR: cacheDir },
   });
 
   const pending = new Map<number, (response: JsonRpcResponse) => void>();
@@ -69,32 +69,32 @@ async function runTests(): Promise<void> {
       clientInfo: { name: 'test', version: '0.0.0' },
     });
     assert.strictEqual(init.result?.protocolVersion, '2025-03-26', 'echoes supported protocol version');
-    assert.ok((init.result?.serverInfo as { name: string }).name === 'codegraph-mcp', 'server info present');
+    assert.ok((init.result?.serverInfo as { name: string }).name === 'graphweft-mcp', 'server info present');
 
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
 
     const list = await request('tools/list');
     const tools = (list.result?.tools as Array<{ name: string }>).map((t) => t.name);
-    assert.ok(tools.includes('codegraph_context'), 'context tool listed');
-    assert.ok(tools.includes('codegraph_impact'), 'impact tool listed');
-    assert.ok(tools.includes('codegraph_stats'), 'stats tool listed');
-    assert.ok(tools.includes('codegraph_semantic_search'), 'semantic search tool listed');
-    assert.ok(tools.includes('codegraph_embed'), 'embed tool listed');
+    assert.ok(tools.includes('graphweft_context'), 'context tool listed');
+    assert.ok(tools.includes('graphweft_impact'), 'impact tool listed');
+    assert.ok(tools.includes('graphweft_stats'), 'stats tool listed');
+    assert.ok(tools.includes('graphweft_semantic_search'), 'semantic search tool listed');
+    assert.ok(tools.includes('graphweft_embed'), 'embed tool listed');
 
-    const stats = await request('tools/call', { name: 'codegraph_stats', arguments: {} });
+    const stats = await request('tools/call', { name: 'graphweft_stats', arguments: {} });
     const statsText = (stats.result?.content as Array<{ text: string }>)[0].text;
     assert.ok(/Indexed 2 files/.test(statsText), `stats reflect the workspace: ${statsText}`);
     assert.ok(/1 import edges/.test(statsText), `edge resolved: ${statsText}`);
 
     const impact = await request('tools/call', {
-      name: 'codegraph_impact',
+      name: 'graphweft_impact',
       arguments: { path: 'src/user.service.ts' },
     });
     const impactText = (impact.result?.content as Array<{ text: string }>)[0].text;
     assert.ok(impactText.includes('src/user.controller.ts'), `impact finds importer: ${impactText}`);
 
     const context = await request('tools/call', {
-      name: 'codegraph_context',
+      name: 'graphweft_context',
       arguments: { task: 'fix UserService findUser' },
     });
     const contextText = (context.result?.content as Array<{ text: string }>)[0].text;
@@ -105,13 +105,13 @@ async function runTests(): Promise<void> {
 
     // Semantic tools degrade gracefully when embeddings are disabled and no index exists.
     const semantic = await request('tools/call', {
-      name: 'codegraph_semantic_search',
+      name: 'graphweft_semantic_search',
       arguments: { query: 'find the user lookup' },
     });
     const semanticText = (semantic.result?.content as Array<{ text: string }>)[0].text;
     assert.ok(/No embedding index exists/.test(semanticText), `semantic search explains missing index: ${semanticText}`);
 
-    const embed = await request('tools/call', { name: 'codegraph_embed', arguments: {} });
+    const embed = await request('tools/call', { name: 'graphweft_embed', arguments: {} });
     const embedText = (embed.result?.content as Array<{ text: string }>)[0].text;
     assert.ok(/No embedding backend is available/.test(embedText), `embed explains missing backend: ${embedText}`);
 
@@ -127,7 +127,7 @@ async function runTests(): Promise<void> {
     let sawUpdate = false;
     for (let attempt = 0; attempt < 20 && !sawUpdate; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const fresh = await request('tools/call', { name: 'codegraph_stats', arguments: {} });
+      const fresh = await request('tools/call', { name: 'graphweft_stats', arguments: {} });
       const freshText = (fresh.result?.content as Array<{ text: string }>)[0].text;
       sawUpdate = /Indexed 3 files/.test(freshText);
     }

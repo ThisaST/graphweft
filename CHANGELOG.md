@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **Codemap — Local Code Graph** are documented here.
+All notable changes to **Graphweft** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -11,24 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **in-process** via a bundled ONNX runtime (`@huggingface/transformers`) — no Ollama or any
   external server required. The model (default `jinaai/jina-embeddings-v2-base-code`,
   quantized; fast alternative `Xenova/all-MiniLM-L6-v2`) is downloaded once to
-  `~/.codegraph/models` and never ships in the package.
+  `~/.graphweft/models` and never ships in the package.
 - **AST-aware chunking** (`src/semantic/codeChunker.ts`): one chunk per top-level
   function/class with a situating header (path › kind › signature), a file-summary chunk per
   file, and a sliding-window fallback for symbol-less files — so results point LLMs at precise
   symbols and line ranges instead of whole files.
 - **Persistent per-repo vector store** (`src/semantic/sqliteVectorStore.ts`): sql.js database
-  under `~/.codegraph/index/<repo-hash>/semantic.db`, incremental by chunk content hash —
+  under `~/.graphweft/index/<repo-hash>/semantic.db`, incremental by chunk content hash —
   re-running `embed` after an edit re-embeds only what changed.
-- **New CLI commands**: `codegraph embed [dir]` (`--model`, `--wipe`),
-  `codegraph semantic [dir] <query…>` (`--top`), and `codegraph search` is now **hybrid by
+- **New CLI commands**: `graphweft embed [dir]` (`--model`, `--wipe`),
+  `graphweft semantic [dir] <query…>` (`--top`), and `graphweft search` is now **hybrid by
   default** — embedding similarity is fused into the reciprocal-rank fusion whenever an index
   exists (`--no-semantic` to opt out).
-- **New MCP tools**: `codegraph_semantic_search` (chunk-level hits with snippets) and
-  `codegraph_embed`; `codegraph_context` fuses semantic ranks automatically. The workspace
+- **New MCP tools**: `graphweft_semantic_search` (chunk-level hits with snippets) and
+  `graphweft_embed`; `graphweft_context` fuses semantic ranks automatically. The workspace
   watcher incrementally re-embeds changed files (best-effort).
 - **Provider chain** (`src/semantic/providerChain.ts`): `auto` prefers the bundled local
-  runtime, falls back to Ollama when configured; `CODEGRAPH_EMBED_RUNTIME` /
-  `CODEGRAPH_EMBED_MODEL` / `CODEGRAPH_MODEL_CACHE` / `CODEGRAPH_CACHE_DIR` overrides.
+  runtime, falls back to Ollama when configured; `GRAPHWEFT_EMBED_RUNTIME` /
+  `GRAPHWEFT_EMBED_MODEL` / `GRAPHWEFT_MODEL_CACHE` / `GRAPHWEFT_CACHE_DIR` overrides.
 - Tests: `codeChunker`, `semanticLocal` (provider chain + vector store), `semanticEngine`
   (hybrid engine, injected fake providers), MCP semantic tool coverage — no model downloads
   in CI.
@@ -38,16 +38,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cost as graph-only. Results in BENCHMARKS.md.
 - **Agent-in-the-loop benchmark** (`src/benchmark/agentBenchmark.ts`): real Claude Code and
   GitHub Copilot CLI agents answering 8 ground-truth codebase questions across three arms
-  (no codegraph / graph-only MCP / graph+embeddings MCP), with per-run correctness, wall time,
-  turns, tokens, cost, and codegraph tool-call telemetry. Headline: the one task no agent
-  solved without codegraph (keyword-free conceptual lookup) was solved with it; Copilot cut
+  (no graphweft / graph-only MCP / graph+embeddings MCP), with per-run correctness, wall time,
+  turns, tokens, cost, and graphweft tool-call telemetry. Headline: the one task no agent
+  solved without graphweft (keyword-free conceptual lookup) was solved with it; Copilot cut
   wall time 27%; tool *adoption* (not tool quality) is the bottleneck for Claude. Full
   methodology, results, and caveats in AGENT_BENCHMARKS.md.
 
 ### Changed
-- The VS Code extension is unaffected: it keeps its Ollama-based file-level semantic path, and
-  `.vscodeignore` now hard-excludes `@huggingface/transformers`/`onnxruntime`/`sharp` so ONNX
-  binaries can never enter the VSIX (leak check documented in PUBLISHING.md).
+- **Project renamed to Graphweft.** The extension formerly known as CodeGraph / Codemap — Local
+  Code Graph is now **Graphweft**. This is a comprehensive rename:
+  - npm/extension package name: `codemap-graph` → `graphweft`.
+  - Chat participant: `@codegraph` → `@graphweft` (id `graphweft.chat`).
+  - Command IDs: `codegraph.*` → `graphweft.*`.
+  - Settings namespace: `codegraph.*` → `graphweft.*`.
+  - MCP server tools: `codegraph_context`, `codegraph_impact`, `codegraph_path`,
+    `codegraph_hotspots`, `codegraph_symbol_refs`, `codegraph_communities`, `codegraph_stats`
+    → `graphweft_*` equivalents.
+  - CLI bin: `codegraph` → `graphweft`.
+  - Public API surface (e.g. `CodeGraphEngine` → `GraphweftEngine`) and storage keys renamed
+    to match.
+
+  Historical changelog entries below retain the old names for accuracy.
+- The VS Code extension is unaffected by the new semantic pipeline: it keeps its Ollama-based
+  file-level semantic path, and `.vscodeignore` hard-excludes
+  `@huggingface/transformers`/`onnxruntime`/`sharp` so ONNX binaries can never enter the VSIX
+  (leak check documented in PUBLISHING.md).
 
 ## [0.7.0] — 2026-08-12
 

@@ -14,7 +14,7 @@
  * Pure module (no vscode, no IO) — fully unit-testable.
  */
 import * as crypto from 'crypto';
-import { CodeGraphFile, CodeSymbol } from '../graph/graphTypes';
+import { GraphweftFile, CodeSymbol } from '../graph/graphTypes';
 import { buildSemanticDoc } from './semanticDoc';
 
 export type ChunkKind = 'symbol' | 'file-summary' | 'window';
@@ -56,7 +56,7 @@ const defaults: Required<ChunkOptions> = {
  * Chunk one file. `text` is the file's current source (the scanners already hold it);
  * `file` is its graph-index entry with symbols and line ranges.
  */
-export function chunkFile(file: CodeGraphFile, text: string, options?: ChunkOptions): CodeChunk[] {
+export function chunkFile(file: GraphweftFile, text: string, options?: ChunkOptions): CodeChunk[] {
   const opts = { ...defaults, ...options };
   const lines = text.split(/\r\n|\r|\n/);
   const chunks: CodeChunk[] = [];
@@ -98,7 +98,7 @@ function selectChunkableSymbols(symbols: CodeSymbol[]): CodeSymbol[] {
  * code lives and what it is, so "auth middleware in the API layer" can match on structure,
  * not just on tokens that happen to appear in the body.
  */
-function situatingHeader(file: CodeGraphFile, symbol: CodeSymbol, qualified: string): string {
+function situatingHeader(file: GraphweftFile, symbol: CodeSymbol, qualified: string): string {
   const parts = [`// ${file.path}`];
   if (file.moduleName) parts.push(`module ${file.moduleName}`);
   parts.push(`${symbol.type} ${qualified}`);

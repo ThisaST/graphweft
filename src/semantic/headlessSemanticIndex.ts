@@ -7,7 +7,7 @@
  * build only embeds chunks whose hash changed since the last run — a re-run on an unchanged
  * repo embeds nothing and finishes in milliseconds.
  */
-import { CodeGraphFile } from '../graph/graphTypes';
+import { GraphweftFile } from '../graph/graphTypes';
 import { chunkFile, CodeChunk } from './codeChunker';
 import { EmbeddingProvider } from './embeddingProvider';
 import { EmbeddingChainConfig, resolveEmbeddingProvider } from './providerChain';
@@ -29,7 +29,7 @@ export interface SemanticFileMatch {
 }
 
 /** Reads a file's current text; return undefined to skip (deleted/binary). */
-export type FileTextReader = (file: CodeGraphFile) => Promise<string | undefined>;
+export type FileTextReader = (file: GraphweftFile) => Promise<string | undefined>;
 
 export class HeadlessSemanticIndex {
   public constructor(
@@ -74,7 +74,7 @@ export class HeadlessSemanticIndex {
    * hash is new or changed, drop chunks that no longer exist, persist to disk.
    */
   public async build(
-    files: CodeGraphFile[],
+    files: GraphweftFile[],
     readText: FileTextReader,
     onProgress?: (embedded: number, total: number) => void,
   ): Promise<SemanticBuildStats> {
@@ -127,12 +127,12 @@ export class HeadlessSemanticIndex {
     const provider = this.requireProvider();
     const stats = this.store.stats();
     if (stats.chunks === 0) {
-      throw new Error('Semantic index is empty. Run `codegraph embed` first.');
+      throw new Error('Semantic index is empty. Run `graphweft embed` first.');
     }
     if (stats.providerId !== provider.id) {
       throw new Error(
         `Semantic index was built with "${stats.providerId}" but the current backend is "${provider.id}". ` +
-          'Run `codegraph embed` to rebuild.',
+          'Run `graphweft embed` to rebuild.',
       );
     }
     const [queryVector] = await provider.embed([query]);

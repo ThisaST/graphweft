@@ -1,4 +1,4 @@
-import { CodeGraphFile } from './graphTypes';
+import { GraphweftFile } from './graphTypes';
 import * as path from 'path';
 import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
@@ -9,7 +9,7 @@ export interface FileGraph {
   reverseAdjacency: Map<string, Set<string>>;
 }
 
-export function buildFileGraph(files: CodeGraphFile[]): FileGraph {
+export function buildFileGraph(files: GraphweftFile[]): FileGraph {
   const index = buildFileIndex(files);
   const adjacency = new Map<string, Set<string>>();
   const reverseAdjacency = new Map<string, Set<string>>();
@@ -32,19 +32,19 @@ export function buildFileGraph(files: CodeGraphFile[]): FileGraph {
 
 /** Lookup tables used to resolve imports to files across languages. Built once per graph. */
 interface FileIndex {
-  byPath: Map<string, CodeGraphFile>;
+  byPath: Map<string, GraphweftFile>;
   /** Declared namespace/package -> files that declare it (C#, Java, Kotlin, Scala, PHP, VB). */
-  byModule: Map<string, CodeGraphFile[]>;
+  byModule: Map<string, GraphweftFile[]>;
   /** File base name without extension -> files (Python/Go/Rust module-path & include fallback). */
-  byBaseName: Map<string, CodeGraphFile[]>;
+  byBaseName: Map<string, GraphweftFile[]>;
   /** Directory segment name -> directory prefixes ending in it (workspace-package resolution). */
   byDirName: Map<string, string[]>;
 }
 
-function buildFileIndex(files: CodeGraphFile[]): FileIndex {
-  const byPath = new Map<string, CodeGraphFile>();
-  const byModule = new Map<string, CodeGraphFile[]>();
-  const byBaseName = new Map<string, CodeGraphFile[]>();
+function buildFileIndex(files: GraphweftFile[]): FileIndex {
+  const byPath = new Map<string, GraphweftFile>();
+  const byModule = new Map<string, GraphweftFile[]>();
+  const byBaseName = new Map<string, GraphweftFile[]>();
   const byDirName = new Map<string, string[]>();
 
   for (const file of files) {
@@ -353,7 +353,7 @@ export interface SymbolReference {
  * Build the symbol-level reference graph from named imports resolved against exported
  * symbols. Wildcard/default imports contribute no symbol edges (they stay file-level).
  */
-export function buildSymbolReferences(files: CodeGraphFile[]): SymbolReference[] {
+export function buildSymbolReferences(files: GraphweftFile[]): SymbolReference[] {
   const index = buildFileIndex(files);
   const references: SymbolReference[] = [];
 
@@ -413,8 +413,8 @@ const FILE_EXTENSIONS = [
 
 const INDEX_FILES = ['index.ts', 'index.tsx', 'index.js', 'index.jsx', '__init__.py', 'mod.rs'];
 
-function resolveImports(file: CodeGraphFile, index: FileIndex): CodeGraphFile[] {
-  const resolved: CodeGraphFile[] = [];
+function resolveImports(file: GraphweftFile, index: FileIndex): GraphweftFile[] {
+  const resolved: GraphweftFile[] = [];
   const seen = new Set<string>();
 
   for (const importRef of file.imports) {
@@ -430,7 +430,7 @@ function resolveImports(file: CodeGraphFile, index: FileIndex): CodeGraphFile[] 
 }
 
 /** Resolve a single import specifier to its target file(s), across all supported languages. */
-function resolveSpecifier(file: CodeGraphFile, rawSpecifier: string, index: FileIndex): CodeGraphFile[] {
+function resolveSpecifier(file: GraphweftFile, rawSpecifier: string, index: FileIndex): GraphweftFile[] {
   const specifier = rawSpecifier?.trim();
   if (!specifier) return [];
 
@@ -457,13 +457,13 @@ function resolveSpecifier(file: CodeGraphFile, rawSpecifier: string, index: File
 }
 
 /** Relative import: resolve against the importing file's directory, trying common extensions. */
-function resolveRelative(fromPath: string, specifier: string, byPath: Map<string, CodeGraphFile>): CodeGraphFile | undefined {
+function resolveRelative(fromPath: string, specifier: string, byPath: Map<string, GraphweftFile>): GraphweftFile | undefined {
   const base = path.posix.normalize(path.posix.join(path.posix.dirname(fromPath), specifier));
   return firstMatch(candidatePaths(base), byPath);
 }
 
 /** Namespace/package import: link to every file declaring that namespace (or its parent). */
-function resolveNamespace(specifier: string, byModule: Map<string, CodeGraphFile[]>): CodeGraphFile[] {
+function resolveNamespace(specifier: string, byModule: Map<string, GraphweftFile[]>): GraphweftFile[] {
   const direct = byModule.get(specifier);
   if (direct && direct.length > 0) return direct;
 
@@ -490,8 +490,8 @@ function resolveNamespace(specifier: string, byModule: Map<string, CodeGraphFile
 function resolveWorkspacePackage(
   specifier: string,
   byDirName: Map<string, string[]>,
-  byPath: Map<string, CodeGraphFile>,
-): CodeGraphFile | undefined {
+  byPath: Map<string, GraphweftFile>,
+): GraphweftFile | undefined {
   const scoped = specifier.startsWith('@');
   const parts = specifier.replace(/\\/gu, '/').split('/').filter(Boolean);
   const packageName = parts[scoped ? 1 : 0];
@@ -516,7 +516,7 @@ function resolveWorkspacePackage(
 }
 
 /** Path-like specifier (`sub/dir/file`, `file.h`, `a.b.c` module path). */
-function resolvePathLike(specifier: string, byPath: Map<string, CodeGraphFile>): CodeGraphFile | undefined {
+function resolvePathLike(specifier: string, byPath: Map<string, GraphweftFile>): GraphweftFile | undefined {
   const normalized = specifier.replace(/\\/gu, '/').replace(/^@\//u, '').replace(/^\/+/u, '');
 
   // As-written (e.g. `#include "net/socket.h"`), with extension candidates.
@@ -542,7 +542,7 @@ function resolvePathLike(specifier: string, byPath: Map<string, CodeGraphFile>):
 }
 
 /** Match the final segment of a module path against a uniquely-named file. */
-function resolveByBaseName(specifier: string, byBaseName: Map<string, CodeGraphFile[]>): CodeGraphFile | undefined {
+function resolveByBaseName(specifier: string, byBaseName: Map<string, GraphweftFile[]>): GraphweftFile | undefined {
   const parts = specifier.replace(/^@/u, '').split(/[.\\/:]/u).filter(Boolean);
   const last = parts[parts.length - 1];
   if (!last) return undefined;
@@ -555,7 +555,7 @@ function candidatePaths(base: string): string[] {
   return [base, ...FILE_EXTENSIONS.map((ext) => `${base}${ext}`), ...INDEX_FILES.map((file) => path.posix.join(base, file))];
 }
 
-function firstMatch(candidates: string[], byPath: Map<string, CodeGraphFile>): CodeGraphFile | undefined {
+function firstMatch(candidates: string[], byPath: Map<string, GraphweftFile>): GraphweftFile | undefined {
   for (const candidate of candidates) {
     const file = byPath.get(candidate);
     if (file) return file;

@@ -1,7 +1,7 @@
 /* global cytoscape, acquireVsCodeApi */
 (function () {
   const vscode = acquireVsCodeApi();
-  const data = window.__codegraphData__ || { nodes: [], edges: [] };
+  const data = window.__graphweftData__ || { nodes: [], edges: [] };
   const palette = ['#4f9cf9', '#f97583', '#56d364', '#d29922', '#a371f7', '#f0883e', '#6e7681', '#79c0ff', '#ff7b72', '#3fb950'];
 
   function colorFor(community) {
@@ -180,7 +180,7 @@
       <div>community ${data.community} · ${data.symbols} symbols · ${data.lang}</div>
       <div class="row">
         <button data-action="open" data-path="${escapeAttr(data.full)}">Open file</button>
-        <button data-action="ask" data-path="${escapeAttr(data.full)}">Ask @codegraph about this</button>
+        <button data-action="ask" data-path="${escapeAttr(data.full)}">Ask @graphweft about this</button>
         <button data-action="impact" data-path="${escapeAttr(data.full)}">Show impact set</button>
       </div>
     `;

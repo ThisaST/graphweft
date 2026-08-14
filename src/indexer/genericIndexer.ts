@@ -1,4 +1,4 @@
-import { CodeGraphFile, CodeSymbol, CodeSymbolType } from '../graph/graphTypes';
+import { GraphweftFile, CodeSymbol, CodeSymbolType } from '../graph/graphTypes';
 import { extractMultiLangImports } from './multiLangImports';
 import { extractModuleDeclaration } from './moduleDeclarations';
 import { extractTreeSitterSymbols } from './treeSitterIndexer';
@@ -87,7 +87,7 @@ const patternsByExtension: Record<string, SymbolPattern[]> = {
   ],
 };
 
-export function indexGenericFile(file: WorkspaceSourceFile): CodeGraphFile {
+export function indexGenericFile(file: WorkspaceSourceFile): GraphweftFile {
   const ext = getExtension(file.workspaceRelativePath);
   // Prefer AST-accurate tree-sitter extraction; fall back to regex when the WASM
   // runtime or the grammar for this language is unavailable.

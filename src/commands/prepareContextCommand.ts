@@ -4,12 +4,12 @@ import { GraphRetriever } from '../graph/graphRetriever';
 import { GraphStore } from '../graph/graphStore';
 import { buildIndexCommandId } from './buildIndexCommand';
 
-export const prepareContextCommandId = 'codegraph.prepareContext';
+export const prepareContextCommandId = 'graphweft.prepareContext';
 
 export function registerPrepareContextCommand(store: GraphStore): vscode.Disposable {
   return vscode.commands.registerCommand(prepareContextCommandId, async () => {
     if (!store.hasIndex()) {
-      const action = await vscode.window.showWarningMessage('CodeGraph: Build the local index before preparing context.', 'Build Index');
+      const action = await vscode.window.showWarningMessage('Graphweft: Build the local index before preparing context.', 'Build Index');
       if (action === 'Build Index') {
         await vscode.commands.executeCommand(buildIndexCommandId);
       }
@@ -20,7 +20,7 @@ export function registerPrepareContextCommand(store: GraphStore): vscode.Disposa
     }
 
     const task = await vscode.window.showInputBox({
-      title: 'CodeGraph: Prepare Copilot Context',
+      title: 'Graphweft: Prepare Copilot Context',
       prompt: 'Describe the task you want Copilot Chat to help with.',
       placeHolder: 'Example: update auth controller validation and related tests',
       ignoreFocusOut: true,
@@ -39,6 +39,6 @@ export function registerPrepareContextCommand(store: GraphStore): vscode.Disposa
     });
 
     await vscode.window.showTextDocument(document, { preview: false });
-    vscode.window.showInformationMessage('CodeGraph: Copilot context package prepared.');
+    vscode.window.showInformationMessage('Graphweft: Copilot context package prepared.');
   });
 }

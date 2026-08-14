@@ -1,10 +1,10 @@
 /**
- * Orchestrates CodeGraph's opt-in local semantic index: builds per-file docs from the graph
+ * Orchestrates Graphweft's opt-in local semantic index: builds per-file docs from the graph
  * store, embeds changed ones via the local (loopback-only) provider, persists vectors to
  * extension storage, and answers similarity queries that feed the hybrid retriever.
  *
  * Everything is best-effort: if the local server is down or the feature is off, callers get
- * empty results and CodeGraph behaves exactly as before (pure lexical+graph retrieval).
+ * empty results and Graphweft behaves exactly as before (pure lexical+graph retrieval).
  */
 import * as vscode from 'vscode';
 import { GraphStore } from '../graph/graphStore';
@@ -32,7 +32,7 @@ export class SemanticIndexer {
 
   /** Feature flag + provider from settings. Undefined when disabled or misconfigured. */
   public getProvider(): EmbeddingProvider | undefined {
-    const config = vscode.workspace.getConfiguration('codegraph');
+    const config = vscode.workspace.getConfiguration('graphweft');
     if (!config.get<boolean>('semanticSearch.enabled', false)) return undefined;
     try {
       return new OllamaEmbeddingProvider({
@@ -53,7 +53,7 @@ export class SemanticIndexer {
   public async build(onProgress?: (done: number, total: number) => void): Promise<SemanticBuildResult> {
     const provider = this.getProvider();
     if (!provider) {
-      throw new Error('Semantic search is disabled. Enable `codegraph.semanticSearch.enabled` first.');
+      throw new Error('Semantic search is disabled. Enable `graphweft.semanticSearch.enabled` first.');
     }
     if (!(await provider.isAvailable())) {
       throw new Error('Local embedding server is not reachable. Start Ollama (or compatible) and try again.');
@@ -61,7 +61,7 @@ export class SemanticIndexer {
 
     const files = this.store.getFiles();
     if (files.length === 0) {
-      throw new Error('No graph index yet. Run `CodeGraph: Build Local Index` first.');
+      throw new Error('No graph index yet. Run `Graphweft: Build Local Index` first.');
     }
 
     let index = await this.loadIndex();

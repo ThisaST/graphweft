@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { buildCodeGraphContextPackage } from '../context/contextCompressor';
+import { buildGraphweftContextPackage } from '../context/contextCompressor';
 import { classifyTask } from '../context/taskClassifier';
 import { getGitDiffContext } from '../git/gitDiffProvider';
 import { GraphRetriever } from '../graph/graphRetriever';
@@ -10,13 +10,13 @@ import { PrivacyManager } from '../privacy/privacyManager';
 import { computeNaiveBaselineBytes, computeNaiveBaselineTokens } from '../privacy/baselineComputer';
 import { clampTokenBudget } from '../utils/tokenEstimator';
 import { handleSlashLocally, parseSlash } from './slashCommands';
-import { buildCodeGraphPrompt } from './promptBuilder';
+import { buildGraphweftPrompt } from './promptBuilder';
 import { contextFooter, fallbackAnswer, modelErrorMessage, noWorkspaceMessage } from './responsePolicy';
 import { runAgentLoop } from './agentRunner';
-import { CODEGRAPH_TOOL_NAMES } from './agentTools';
+import { GRAPHWEFT_TOOL_NAMES } from './agentTools';
 import { TaskType } from '../context/taskClassifier';
 import { ComplexityTier } from '../context/complexityScorer';
-import { CodeGraphContextPackage } from '../context/contextPackage';
+import { GraphweftContextPackage } from '../context/contextPackage';
 import { classifyComplexity } from './complexityClassifier';
 import { ModelPreferenceStore } from '../privacy/modelPreferenceStore';
 import { listChatModels } from './modelAdvisor';
@@ -25,10 +25,10 @@ import { profileModels } from './modelRegistry';
 import { deriveRequirement, recommendModels, roleBadge, Recommendation } from './modelRecommender';
 import { estimateTokens } from '../utils/tokenEstimator';
 
-export const codegraphParticipantId = 'codegraph.chat';
+export const graphweftParticipantId = 'graphweft.chat';
 
 /** Command fired by the in-chat model-switch buttons; re-runs the query with a forced model. */
-const ANSWER_WITH_COMMAND = 'codegraph.answerWith';
+const ANSWER_WITH_COMMAND = 'graphweft.answerWith';
 
 interface AnswerWithPayload {
   query: string;
@@ -63,10 +63,10 @@ export interface ParticipantDeps {
   iconUri?: vscode.Uri;
 }
 
-export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disposable {
+export function registerGraphweftParticipant(deps: ParticipantDeps): vscode.Disposable {
   const { store, indexer, privacy, audit, modelPrefs, semantic } = deps;
 
-  const participant = vscode.chat.createChatParticipant(codegraphParticipantId, async (request, context, stream, token) => {
+  const participant = vscode.chat.createChatParticipant(graphweftParticipantId, async (request, context, stream, token) => {
     const task = request.prompt.trim();
 
     if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
@@ -86,7 +86,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     }
 
     if (!task) {
-      stream.markdown('Ask CodeGraph what you want to understand, fix, test, review, or analyze. Try `/help` for slash commands.');
+      stream.markdown('Ask Graphweft what you want to understand, fix, test, review, or analyze. Try `/help` for slash commands.');
       return;
     }
 
@@ -100,14 +100,14 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     let indexingError: string | undefined;
     try {
       if (!store.hasIndex()) {
-        stream.progress('Building local CodeGraph index...');
+        stream.progress('Building local Graphweft index...');
         const result = await indexer.ensureFresh();
         if (result) {
           if (result.filesIndexed === 0) {
             stream.markdown(
-              'CodeGraph found no indexable source files in this workspace. ' +
+              'Graphweft found no indexable source files in this workspace. ' +
               'Files inside `node_modules`, `dist`, `build`, `coverage`, `.git`, `__pycache__`, and `.venv` are excluded. ' +
-              'To trigger a manual rebuild, run **CodeGraph: Build Local Index** from the Command Palette.',
+              'To trigger a manual rebuild, run **Graphweft: Build Local Index** from the Command Palette.',
             );
             return;
           }
@@ -147,7 +147,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
       changedFilePaths: gitDiff.changedFiles,
       semanticMatches,
     });
-    const contextPackage = buildCodeGraphContextPackage({
+    const contextPackage = buildGraphweftContextPackage({
       task,
       taskType,
       retrieval,
@@ -155,7 +155,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
       maxTokens: tokenBudget,
       indexingError,
     });
-    const prompt = buildCodeGraphPrompt({
+    const prompt = buildGraphweftPrompt({
       contextPackage,
       indexingError,
       gitError: gitDiff.error,
@@ -169,7 +169,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     if (privacy.isLocalOnly()) {
       stream.markdown(
         [
-          '> 🔒 **Local-only mode is on** — CodeGraph will not send anything to the language model.',
+          '> 🔒 **Local-only mode is on** — Graphweft will not send anything to the language model.',
           '',
           'Below is the local context that *would* have been sent if local-only were off. Switch the mode in the Privacy Center (`/privacy`) to enable model calls.',
           '',
@@ -197,7 +197,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     if (privacy.requiresPreview()) {
       const filesPreview = contextPackage.relevantFiles.slice(0, 8).map((f) => `- ${f.path}`).join('\n') || '- (none)';
       const choice = await vscode.window.showInformationMessage(
-        `CodeGraph is about to send ${Buffer.byteLength(prompt, 'utf8')} bytes of local context to ${request.model.vendor}/${request.model.id}.`,
+        `Graphweft is about to send ${Buffer.byteLength(prompt, 'utf8')} bytes of local context to ${request.model.vendor}/${request.model.id}.`,
         { modal: true, detail: `Files included:\n${filesPreview}\n\nSwitch mode in the Privacy Center to change this prompt behavior.` },
         'Send',
         'Cancel',
@@ -245,7 +245,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
         // remember it so we stop suggesting it, and use the model you currently have.
         unusableModelIds.add(forcedModelId);
         activeModel = request.model;
-        stream.markdown(`> ⚠️ That model isn't in your available models, so CodeGraph is answering with **${request.model.name}** instead. It won't be suggested again this session.\n\n`);
+        stream.markdown(`> ⚠️ That model isn't in your available models, so Graphweft is answering with **${request.model.name}** instead. It won't be suggested again this session.\n\n`);
       }
     } else {
       const decision = await decideActiveModel({
@@ -283,7 +283,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
         maxRounds: agentStepBudget(),
         continueQuery: task,
         justification:
-          'CodeGraph sends compact local code graph context to the Copilot model selected by the user, and lets that model run workspace tools (with confirmation) to fulfil the request.',
+          'Graphweft sends compact local code graph context to the Copilot model selected by the user, and lets that model run workspace tools (with confirmation) to fulfil the request.',
       });
 
       // Measure with the model's real tokenizer (not bytes/4): the actual first-context tokens
@@ -328,7 +328,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
       const isModelError = error instanceof vscode.LanguageModelError;
       if (isModelError && activeModel.id !== request.model.id) {
         unusableModelIds.add(activeModel.id);
-        stream.markdown(`> ⚠️ **${activeModel.name}** couldn't be used (it may not be enabled for your account). CodeGraph won't suggest it again this session — try **${request.model.name}** or another model.\n\n`);
+        stream.markdown(`> ⚠️ **${activeModel.name}** couldn't be used (it may not be enabled for your account). Graphweft won't suggest it again this session — try **${request.model.name}** or another model.\n\n`);
       }
       stream.markdown(fallbackAnswer(contextPackage, modelErrorMessage(error)));
       await audit.append({
@@ -361,7 +361,7 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
     if (payload.tier) {
       await modelPrefs.recordChoice(payload.tier, payload.modelId, payload.modelName ?? payload.modelId);
     }
-    await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@codegraph ${payload.query}` });
+    await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@graphweft ${payload.query}` });
   });
 
   return vscode.Disposable.from(participant, answerWith);
@@ -370,26 +370,26 @@ export function registerCodeGraphParticipant(deps: ParticipantDeps): vscode.Disp
 /**
  * Models reject a request with more than this many tools. Copilot and other
  * extensions can register dozens (sometimes hundreds) of tools, so we always
- * keep CodeGraph's own tools and fill the rest of the budget with externals.
+ * keep Graphweft's own tools and fill the rest of the budget with externals.
  */
 const MODEL_TOOL_LIMIT = 128;
 
 /**
  * Build the list of tools to expose to the model this turn. Always includes
- * CodeGraph's own tools; optionally tops up with other tools registered in the
- * window (Copilot's and other extensions') so @codegraph is not capability-limited
+ * Graphweft's own tools; optionally tops up with other tools registered in the
+ * window (Copilot's and other extensions') so @graphweft is not capability-limited
  * compared with the built-in agent — but never exceeds the model's tool cap.
- * Controlled by `codegraph.enableAgentTools`, `codegraph.includeExternalTools`,
- * and `codegraph.maxTools`.
+ * Controlled by `graphweft.enableAgentTools`, `graphweft.includeExternalTools`,
+ * and `graphweft.maxTools`.
  */
 function collectAgentTools(): vscode.LanguageModelChatTool[] {
-  const config = vscode.workspace.getConfiguration('codegraph');
+  const config = vscode.workspace.getConfiguration('graphweft');
   if (!config.get<boolean>('enableAgentTools', true)) {
     return [];
   }
   const includeExternal = config.get<boolean>('includeExternalTools', true);
   const cap = Math.min(Math.max(config.get<number>('maxTools', MODEL_TOOL_LIMIT), 1), MODEL_TOOL_LIMIT);
-  const codegraphNames = new Set<string>(CODEGRAPH_TOOL_NAMES);
+  const graphweftNames = new Set<string>(GRAPHWEFT_TOOL_NAMES);
 
   const toTool = (tool: vscode.LanguageModelToolInformation): vscode.LanguageModelChatTool => ({
     name: tool.name,
@@ -397,18 +397,18 @@ function collectAgentTools(): vscode.LanguageModelChatTool[] {
     inputSchema: tool.inputSchema,
   });
 
-  // CodeGraph's own tools always come first so they survive the cap.
-  const own = vscode.lm.tools.filter((tool) => codegraphNames.has(tool.name)).map(toTool);
+  // Graphweft's own tools always come first so they survive the cap.
+  const own = vscode.lm.tools.filter((tool) => graphweftNames.has(tool.name)).map(toTool);
   if (!includeExternal) {
     return own.slice(0, cap);
   }
-  const external = vscode.lm.tools.filter((tool) => !codegraphNames.has(tool.name)).map(toTool);
+  const external = vscode.lm.tools.filter((tool) => !graphweftNames.has(tool.name)).map(toTool);
   return [...own, ...external].slice(0, cap);
 }
 
 /**
  * Convert this chat session's prior turns into model messages so follow-up questions
- * ("edit these with the above analysis") have conversational memory. Only CodeGraph's own
+ * ("edit these with the above analysis") have conversational memory. Only Graphweft's own
  * turns are threaded (so we don't replay other participants' content), and we keep only the
  * most recent turns that fit a slice of the context window — history must never crowd out
  * the freshly-assembled code context or the current question.
@@ -426,7 +426,7 @@ function historyToMessages(
   let used = 0;
   for (let i = context.history.length - 1; i >= 0; i -= 1) {
     const turn = context.history[i];
-    if (turn.participant !== codegraphParticipantId) continue;
+    if (turn.participant !== graphweftParticipantId) continue;
 
     let text: string;
     let message: vscode.LanguageModelChatMessage;
@@ -464,10 +464,10 @@ function responseTurnText(turn: vscode.ChatResponseTurn): string {
  * How many model round-trips the agent loop may take before it stops and offers Continue.
  * The old default (8) was too small for ordinary multi-file work — "read 4 files then apply
  * 3 edits" hit the cap mid-task and forced a confusing re-submit — so we default higher and
- * let users tune it via `codegraph.maxAgentSteps`. Clamped to a sane range.
+ * let users tune it via `graphweft.maxAgentSteps`. Clamped to a sane range.
  */
 function agentStepBudget(): number {
-  const configured = vscode.workspace.getConfiguration('codegraph').get<number>('maxAgentSteps', 16);
+  const configured = vscode.workspace.getConfiguration('graphweft').get<number>('maxAgentSteps', 16);
   return Math.min(Math.max(Math.floor(configured), 1), 50);
 }
 
@@ -615,7 +615,7 @@ async function safeCountTokens(
 interface DecideModelArgs {
   task: string;
   taskType: TaskType;
-  contextPackage: CodeGraphContextPackage;
+  contextPackage: GraphweftContextPackage;
   prompt: string;
   request: vscode.ChatRequest;
   prefs: ModelPreferenceStore;
@@ -627,7 +627,7 @@ interface DecideModelArgs {
 /**
  * The outcome of deciding which model answers this turn:
  *  - `answer`  → proceed now with `model`.
- *  - `awaiting` → CodeGraph posted in-chat switch buttons; do NOT answer this turn.
+ *  - `awaiting` → Graphweft posted in-chat switch buttons; do NOT answer this turn.
  *               The answer is generated when the user clicks a button (which re-runs
  *               the query with the chosen model forced).
  */
@@ -638,11 +638,11 @@ type ModelDecision =
 /**
  * Decide which model answers this turn. Runs the (cost/privacy-aware) complexity
  * classifier; when a different tier of model fits better it either renders in-chat
- * switch buttons (`codegraph.modelSwitchPrompt`) — deferring the answer until the user
+ * switch buttons (`graphweft.modelSwitchPrompt`) — deferring the answer until the user
  * clicks — or just shows an advisory banner. Never throws; defaults to the user's model.
  */
 async function decideActiveModel(args: DecideModelArgs): Promise<ModelDecision> {
-  const config = vscode.workspace.getConfiguration('codegraph');
+  const config = vscode.workspace.getConfiguration('graphweft');
   if (!config.get<boolean>('suggestModel', true)) {
     return { kind: 'answer', model: args.request.model };
   }

@@ -2,12 +2,12 @@
  * Agent-in-the-loop benchmark: real CLI coding agents (Claude Code, GitHub Copilot CLI)
  * answering codebase questions under three arms:
  *
- *   A `baseline` — no codegraph MCP server (agent's native tools only)
- *   B `graph`    — codegraph MCP server, embeddings disabled (empty cache + runtime off)
- *   C `hybrid`   — codegraph MCP server with the prebuilt local embedding index
+ *   A `baseline` — no graphweft MCP server (agent's native tools only)
+ *   B `graph`    — graphweft MCP server, embeddings disabled (empty cache + runtime off)
+ *   C `hybrid`   — graphweft MCP server with the prebuilt local embedding index
  *
  * Agents keep their native tools in every arm; we measure the *marginal* value of the
- * codegraph tools. Tasks are objective Q&A with hand-verified ground truth (file + fact).
+ * graphweft tools. Tasks are objective Q&A with hand-verified ground truth (file + fact).
  *
  * Usage:
  *   node out/benchmark/agentBenchmark.js [--agent claude|copilot|both] [--arm A|B|C|all]
@@ -99,7 +99,7 @@ export type ArmId = 'A' | 'B' | 'C';
 interface ArmSpec {
   id: ArmId;
   label: string;
-  /** null = no codegraph MCP server */
+  /** null = no graphweft MCP server */
   serverEnv: Record<string, string> | null;
 }
 
@@ -107,9 +107,9 @@ function armSpecs(workDir: string): ArmSpec[] {
   const emptyCache = path.join(workDir, 'arm-b-cache');
   fs.mkdirSync(emptyCache, { recursive: true });
   return [
-    { id: 'A', label: 'baseline (no codegraph)', serverEnv: null },
-    { id: 'B', label: 'codegraph graph-only', serverEnv: { CODEGRAPH_CACHE_DIR: emptyCache, CODEGRAPH_EMBED_RUNTIME: 'off' } },
-    { id: 'C', label: 'codegraph + embeddings', serverEnv: {} },
+    { id: 'A', label: 'baseline (no graphweft)', serverEnv: null },
+    { id: 'B', label: 'graphweft graph-only', serverEnv: { GRAPHWEFT_CACHE_DIR: emptyCache, GRAPHWEFT_EMBED_RUNTIME: 'off' } },
+    { id: 'C', label: 'graphweft + embeddings', serverEnv: {} },
   ];
 }
 
@@ -131,7 +131,7 @@ export interface RunResult {
   outputTokens?: number;
   costUsd?: number;
   credits?: number;
-  codegraphCalls?: number;
+  graphweftCalls?: number;
   toolCalls?: number;
   answer: string;
   error?: string;
@@ -141,7 +141,7 @@ function promptFor(task: AgentTask, repoRoot: string, nudge: boolean): string {
   const base = `Answer this question about the codebase at ${repoRoot}: ${task.question} ` +
     'Cite the repository-relative file path and the exact value(s). Be concise.';
   return nudge
-    ? base + ' Use the codegraph MCP tools (codegraph_semantic_search, codegraph_context) to locate the code before reading files.'
+    ? base + ' Use the graphweft MCP tools (graphweft_semantic_search, graphweft_context) to locate the code before reading files.'
     : base;
 }
 
@@ -184,10 +184,10 @@ function writeMcpConfigs(arm: ArmSpec, workDir: string, repoRoot: string): McpFi
     args: [serverJs, repoRoot],
     env: arm.serverEnv,
   };
-  fs.writeFileSync(claudeConfigPath, JSON.stringify({ mcpServers: { codegraph: server } }));
+  fs.writeFileSync(claudeConfigPath, JSON.stringify({ mcpServers: { graphweft: server } }));
   const copilotConfig = {
     mcpServers: {
-      codegraph: { type: 'local', command: 'node', args: [serverJs, repoRoot], env: arm.serverEnv, tools: ['*'] },
+      graphweft: { type: 'local', command: 'node', args: [serverJs, repoRoot], env: arm.serverEnv, tools: ['*'] },
     },
   };
   const copilotPath = path.join(workDir, `copilot-mcp-${arm.id}.json`);
@@ -216,7 +216,7 @@ async function runClaude(task: AgentTask, arm: ArmSpec, mcp: McpFiles, repoRoot:
   let inputTokens: number | undefined;
   let outputTokens: number | undefined;
   let costUsd: number | undefined;
-  let codegraphCalls = 0;
+  let graphweftCalls = 0;
   let toolCalls = 0;
   let isError = res.timedOut;
   for (const line of res.stdout.split(/\r?\n/)) {
@@ -228,7 +228,7 @@ async function runClaude(task: AgentTask, arm: ArmSpec, mcp: McpFiles, repoRoot:
       for (const block of evt.message.content) {
         if (block.type === 'tool_use') {
           toolCalls += 1;
-          if (typeof block.name === 'string' && block.name.startsWith('mcp__codegraph__')) codegraphCalls += 1;
+          if (typeof block.name === 'string' && block.name.startsWith('mcp__graphweft__')) graphweftCalls += 1;
         }
       }
     }
@@ -244,7 +244,7 @@ async function runClaude(task: AgentTask, arm: ArmSpec, mcp: McpFiles, repoRoot:
   return finalize({
     agent: 'claude', arm: arm.id, nudge: nudge || undefined, taskId: task.id, kind: task.kind,
     ok: !isError && answer.length > 0,
-    wallMs, turns, inputTokens, outputTokens, costUsd, codegraphCalls, toolCalls,
+    wallMs, turns, inputTokens, outputTokens, costUsd, graphweftCalls, toolCalls,
     answer,
     error: isError ? (res.timedOut ? 'timeout' : trimForLog(res.stderr)) : undefined,
   }, task);
@@ -357,7 +357,7 @@ export function renderAgentMarkdown(results: RunResult[]): string {
     const cost = r.agent === 'claude'
       ? (r.costUsd !== undefined ? '$' + r.costUsd.toFixed(3) : '—')
       : (r.credits !== undefined ? r.credits.toFixed(1) + ' cr' : '—');
-    lines.push(`| ${r.agent} | ${r.arm} | ${r.taskId} | ${r.kind} | ${r.correct ? '✅' : '❌'} | ${r.fileHit ? '✓' : '✗'} | ${r.factHit ? '✓' : '✗'} | ${(r.wallMs / 1000).toFixed(0)} | ${r.turns ?? '—'} | ${r.codegraphCalls ?? '—'} | ${cost} |`);
+    lines.push(`| ${r.agent} | ${r.arm} | ${r.taskId} | ${r.kind} | ${r.correct ? '✅' : '❌'} | ${r.fileHit ? '✓' : '✗'} | ${r.factHit ? '✓' : '✗'} | ${(r.wallMs / 1000).toFixed(0)} | ${r.turns ?? '—'} | ${r.graphweftCalls ?? '—'} | ${cost} |`);
   }
   return lines.join('\n');
 }

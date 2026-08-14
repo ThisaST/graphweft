@@ -4,13 +4,13 @@ import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
 import { scanWorkspaceSources } from '../indexer/workspaceScanner';
 
-export const buildIndexCommandId = 'codegraph.buildIndex';
+export const buildIndexCommandId = 'graphweft.buildIndex';
 
 export function registerBuildIndexCommand(store: GraphStore): vscode.Disposable {
   return vscode.commands.registerCommand(buildIndexCommandId, async () => {
     if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
       await store.clear();
-      vscode.window.showWarningMessage('CodeGraph: Open a workspace folder before building an index.');
+      vscode.window.showWarningMessage('Graphweft: Open a workspace folder before building an index.');
       return;
     }
 
@@ -18,7 +18,7 @@ export function registerBuildIndexCommand(store: GraphStore): vscode.Disposable 
       const indexedFiles = await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: 'CodeGraph: Building local code index',
+          title: 'Graphweft: Building local code index',
           cancellable: false,
         },
         async () => {
@@ -32,16 +32,16 @@ export function registerBuildIndexCommand(store: GraphStore): vscode.Disposable 
 
       if (indexedFiles.length === 0) {
         await store.clear();
-        vscode.window.showWarningMessage('CodeGraph: No source files found to index.');
+        vscode.window.showWarningMessage('Graphweft: No source files found to index.');
         return;
       }
 
       await store.replace(indexedFiles);
       const symbolCount = indexedFiles.reduce((count, file) => count + file.symbols.length, 0);
-      vscode.window.showInformationMessage(`CodeGraph: Indexed ${indexedFiles.length} files and ${symbolCount} symbols locally.`);
+      vscode.window.showInformationMessage(`Graphweft: Indexed ${indexedFiles.length} files and ${symbolCount} symbols locally.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`CodeGraph: Failed to build index. ${message}`);
+      vscode.window.showErrorMessage(`Graphweft: Failed to build index. ${message}`);
     }
   });
 }

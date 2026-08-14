@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { assessComplexity, ComplexityTier } from '../context/complexityScorer';
-import { CodeGraphContextPackage } from '../context/contextPackage';
+import { GraphweftContextPackage } from '../context/contextPackage';
 import { TaskType } from '../context/taskClassifier';
 import { ModelPreferenceStore } from '../privacy/modelPreferenceStore';
 import { cheapestModel, listChatModels } from './modelAdvisor';
@@ -28,8 +28,8 @@ const TIER_SCORE: Record<ComplexityTier, number> = { light: 15, standard: 45, he
 export interface ClassifyOptions {
   task: string;
   taskType: TaskType;
-  contextPackage: CodeGraphContextPackage;
-  /** `codegraph.suggestModelUsesLLM` — allow the cheap-model tiebreak at all. */
+  contextPackage: GraphweftContextPackage;
+  /** `graphweft.suggestModelUsesLLM` — allow the cheap-model tiebreak at all. */
   useModel: boolean;
   /** When true (local-only privacy mode) we never make a model call. */
   localOnly: boolean;
@@ -107,7 +107,7 @@ async function gradeWithModel(
 
   const response = await model.sendRequest(
     [vscode.LanguageModelChatMessage.User(`${GRADER_INSTRUCTION}\n${task}`)],
-    { justification: 'CodeGraph grades a query\'s difficulty locally to suggest a cost-appropriate model.' },
+    { justification: 'Graphweft grades a query\'s difficulty locally to suggest a cost-appropriate model.' },
     token,
   );
 

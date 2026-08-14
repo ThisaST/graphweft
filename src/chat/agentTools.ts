@@ -21,44 +21,44 @@ export interface ToolDeps {
 }
 
 /**
- * Names of the tools CodeGraph registers. The participant passes these to the
+ * Names of the tools Graphweft registers. The participant passes these to the
  * model so it can act on the workspace (run commands, read/write files) and
  * reason over the local graph — the same agentic capability Copilot's built-in
- * agent has, but routed through CodeGraph's privacy/audit layer.
+ * agent has, but routed through Graphweft's privacy/audit layer.
  *
  * Keep in sync with `contributes.languageModelTools` in package.json.
  */
-export const CODEGRAPH_TOOL_NAMES = [
-  'codegraph_runInTerminal',
-  'codegraph_readFile',
-  'codegraph_writeFile',
-  'codegraph_replaceInFile',
-  'codegraph_listDirectory',
-  'codegraph_findFiles',
-  'codegraph_impact',
-  'codegraph_dependencyPath',
-  'codegraph_godNodes',
+export const GRAPHWEFT_TOOL_NAMES = [
+  'graphweft_runInTerminal',
+  'graphweft_readFile',
+  'graphweft_writeFile',
+  'graphweft_replaceInFile',
+  'graphweft_listDirectory',
+  'graphweft_findFiles',
+  'graphweft_impact',
+  'graphweft_dependencyPath',
+  'graphweft_godNodes',
 ] as const;
 
 const MAX_OUTPUT_CHARS = 30_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 120_000;
 
-const configRoot = 'codegraph';
+const configRoot = 'graphweft';
 function cfg<T>(key: string, fallback: T): T {
   return vscode.workspace.getConfiguration(configRoot).get<T>(key, fallback);
 }
 
-export function registerCodeGraphTools(deps: ToolDeps): vscode.Disposable[] {
+export function registerGraphweftTools(deps: ToolDeps): vscode.Disposable[] {
   return [
-    vscode.lm.registerTool('codegraph_runInTerminal', new RunInTerminalTool(deps)),
-    vscode.lm.registerTool('codegraph_readFile', new ReadFileTool()),
-    vscode.lm.registerTool('codegraph_writeFile', new WriteFileTool(deps)),
-    vscode.lm.registerTool('codegraph_replaceInFile', new ReplaceInFileTool(deps)),
-    vscode.lm.registerTool('codegraph_listDirectory', new ListDirectoryTool()),
-    vscode.lm.registerTool('codegraph_findFiles', new FindFilesTool()),
-    vscode.lm.registerTool('codegraph_impact', new ImpactTool(deps)),
-    vscode.lm.registerTool('codegraph_dependencyPath', new DependencyPathTool(deps)),
-    vscode.lm.registerTool('codegraph_godNodes', new GodNodesTool(deps)),
+    vscode.lm.registerTool('graphweft_runInTerminal', new RunInTerminalTool(deps)),
+    vscode.lm.registerTool('graphweft_readFile', new ReadFileTool()),
+    vscode.lm.registerTool('graphweft_writeFile', new WriteFileTool(deps)),
+    vscode.lm.registerTool('graphweft_replaceInFile', new ReplaceInFileTool(deps)),
+    vscode.lm.registerTool('graphweft_listDirectory', new ListDirectoryTool()),
+    vscode.lm.registerTool('graphweft_findFiles', new FindFilesTool()),
+    vscode.lm.registerTool('graphweft_impact', new ImpactTool(deps)),
+    vscode.lm.registerTool('graphweft_dependencyPath', new DependencyPathTool(deps)),
+    vscode.lm.registerTool('graphweft_godNodes', new GodNodesTool(deps)),
   ];
 }
 
@@ -98,7 +98,7 @@ function matchPath(query: string, paths: string[]): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_runInTerminal — execute a shell command and capture output
+// graphweft_runInTerminal — execute a shell command and capture output
 // ---------------------------------------------------------------------------
 
 interface RunInTerminalInput {
@@ -130,7 +130,7 @@ class RunInTerminalTool implements vscode.LanguageModelTool<RunInTerminalInput> 
       prepared.confirmationMessages = {
         title: 'Run command in terminal?',
         message: new vscode.MarkdownString(
-          `${options.input.explanation ? options.input.explanation + '\n\n' : ''}CodeGraph wants to run:\n\n\`\`\`\n${command}\n\`\`\`\n\nThis runs in the **CodeGraph Agent** terminal in your workspace folder.`,
+          `${options.input.explanation ? options.input.explanation + '\n\n' : ''}Graphweft wants to run:\n\n\`\`\`\n${command}\n\`\`\`\n\nThis runs in the **Graphweft Agent** terminal in your workspace folder.`,
         ),
       };
     }
@@ -154,7 +154,7 @@ class RunInTerminalTool implements vscode.LanguageModelTool<RunInTerminalInput> 
     try {
       const { code, output, visible } = await this.runInIntegratedTerminal(command, cwd, token);
       await this.deps.toolAudit.append({
-        tool: 'codegraph_runInTerminal',
+        tool: 'graphweft_runInTerminal',
         summary: command,
         mutating: true,
         outcome: 'ran',
@@ -169,7 +169,7 @@ class RunInTerminalTool implements vscode.LanguageModelTool<RunInTerminalInput> 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.deps.toolAudit.append({
-        tool: 'codegraph_runInTerminal',
+        tool: 'graphweft_runInTerminal',
         summary: command,
         mutating: true,
         outcome: 'error',
@@ -241,7 +241,7 @@ class RunInTerminalTool implements vscode.LanguageModelTool<RunInTerminalInput> 
 
   private ensureTerminal(cwd: string): vscode.Terminal {
     if (!this.terminal || this.terminal.exitStatus !== undefined) {
-      this.terminal = vscode.window.createTerminal({ name: 'CodeGraph Agent', cwd });
+      this.terminal = vscode.window.createTerminal({ name: 'Graphweft Agent', cwd });
     }
     return this.terminal;
   }
@@ -327,7 +327,7 @@ function runShellHeadless(
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_readFile — read a workspace file (read-only, no confirmation)
+// graphweft_readFile — read a workspace file (read-only, no confirmation)
 // ---------------------------------------------------------------------------
 
 interface ReadFileInput {
@@ -353,7 +353,7 @@ class ReadFileTool implements vscode.LanguageModelTool<ReadFileInput> {
       const stat = await vscode.workspace.fs.stat(uri);
       if (stat.type === vscode.FileType.Directory) {
         return textResult(
-          `"${rel}" is a directory, not a file. Use codegraph_listDirectory to see its contents, or codegraph_findFiles to locate files inside it.`,
+          `"${rel}" is a directory, not a file. Use graphweft_listDirectory to see its contents, or graphweft_findFiles to locate files inside it.`,
         );
       }
       const bytes = await vscode.workspace.fs.readFile(uri);
@@ -372,7 +372,7 @@ class ReadFileTool implements vscode.LanguageModelTool<ReadFileInput> {
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_writeFile — create/overwrite a file (confirmation by default)
+// graphweft_writeFile — create/overwrite a file (confirmation by default)
 // ---------------------------------------------------------------------------
 
 interface WriteFileInput {
@@ -399,7 +399,7 @@ class WriteFileTool implements vscode.LanguageModelTool<WriteFileInput> {
       prepared.confirmationMessages = {
         title: exists ? 'Overwrite file?' : 'Create file?',
         message: new vscode.MarkdownString(
-          `CodeGraph wants to ${exists ? 'overwrite' : 'create'} \`${options.input.path}\` (${Buffer.byteLength(options.input.content ?? '', 'utf8')} bytes).`,
+          `Graphweft wants to ${exists ? 'overwrite' : 'create'} \`${options.input.path}\` (${Buffer.byteLength(options.input.content ?? '', 'utf8')} bytes).`,
         ),
       };
     }
@@ -414,7 +414,7 @@ class WriteFileTool implements vscode.LanguageModelTool<WriteFileInput> {
       await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, '..'));
       await vscode.workspace.fs.writeFile(uri, Buffer.from(options.input.content ?? '', 'utf8'));
       await this.deps.toolAudit.append({
-        tool: 'codegraph_writeFile',
+        tool: 'graphweft_writeFile',
         summary: rel,
         mutating: true,
         outcome: 'ran',
@@ -424,14 +424,14 @@ class WriteFileTool implements vscode.LanguageModelTool<WriteFileInput> {
       return textResult(`Wrote ${Buffer.byteLength(options.input.content ?? '', 'utf8')} bytes to ${rel}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await this.deps.toolAudit.append({ tool: 'codegraph_writeFile', summary: options.input.path, mutating: true, outcome: 'error', errorMessage: message });
+      await this.deps.toolAudit.append({ tool: 'graphweft_writeFile', summary: options.input.path, mutating: true, outcome: 'error', errorMessage: message });
       return textResult(`Error writing file: ${message}`);
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_replaceInFile — targeted string replacement (confirmation)
+// graphweft_replaceInFile — targeted string replacement (confirmation)
 // ---------------------------------------------------------------------------
 
 interface ReplaceInFileInput {
@@ -452,7 +452,7 @@ class ReplaceInFileTool implements vscode.LanguageModelTool<ReplaceInFileInput> 
       prepared.confirmationMessages = {
         title: 'Apply edit?',
         message: new vscode.MarkdownString(
-          `CodeGraph wants to replace ${options.input.all ? 'all occurrences' : 'the first occurrence'} of a snippet in \`${options.input.path}\`.`,
+          `Graphweft wants to replace ${options.input.all ? 'all occurrences' : 'the first occurrence'} of a snippet in \`${options.input.path}\`.`,
         ),
       };
     }
@@ -472,26 +472,26 @@ class ReplaceInFileTool implements vscode.LanguageModelTool<ReplaceInFileInput> 
       if (!result) {
         return textResult(
           `Error: the "find" text was not found in ${rel} (tried exact, line-ending-normalized, and ` +
-            'whitespace-flexible matching). Re-read the file with codegraph_readFile and copy the snippet ' +
-            'exactly as shown, or use codegraph_writeFile to rewrite the file.',
+            'whitespace-flexible matching). Re-read the file with graphweft_readFile and copy the snippet ' +
+            'exactly as shown, or use graphweft_writeFile to rewrite the file.',
         );
       }
       await vscode.workspace.fs.writeFile(uri, Buffer.from(result.updated, 'utf8'));
-      await this.deps.toolAudit.append({ tool: 'codegraph_replaceInFile', summary: rel, mutating: true, outcome: 'ran' });
+      await this.deps.toolAudit.append({ tool: 'graphweft_replaceInFile', summary: rel, mutating: true, outcome: 'ran' });
       // Keep the graph in sync with the agent's own edit before the next tool round.
       await this.deps.indexer?.reindexUris([uri]).catch(() => undefined);
       const how = result.strategy === 'exact' ? '' : ` (matched via ${result.strategy})`;
       return textResult(`Replaced ${result.count} occurrence(s) in ${rel}${how}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await this.deps.toolAudit.append({ tool: 'codegraph_replaceInFile', summary: options.input.path, mutating: true, outcome: 'error', errorMessage: message });
+      await this.deps.toolAudit.append({ tool: 'graphweft_replaceInFile', summary: options.input.path, mutating: true, outcome: 'error', errorMessage: message });
       return textResult(`Error editing file: ${message}`);
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_listDirectory — list entries in a folder (read-only)
+// graphweft_listDirectory — list entries in a folder (read-only)
 // ---------------------------------------------------------------------------
 
 interface ListDirectoryInput {
@@ -517,7 +517,7 @@ class ListDirectoryTool implements vscode.LanguageModelTool<ListDirectoryInput> 
 }
 
 // ---------------------------------------------------------------------------
-// codegraph_findFiles — glob search for filenames (read-only)
+// graphweft_findFiles — glob search for filenames (read-only)
 // ---------------------------------------------------------------------------
 
 interface FindFilesInput {
@@ -538,7 +538,7 @@ class FindFilesTool implements vscode.LanguageModelTool<FindFilesInput> {
 }
 
 // ---------------------------------------------------------------------------
-// Graph-native tools — CodeGraph's differentiator (local, no file/process I/O)
+// Graph-native tools — Graphweft's differentiator (local, no file/process I/O)
 // ---------------------------------------------------------------------------
 
 interface ImpactInput {

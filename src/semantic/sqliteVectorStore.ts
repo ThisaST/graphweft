@@ -1,7 +1,7 @@
 /**
  * Persistent chunk-vector store for headless hosts (CLI / MCP server), backed by sql.js —
  * already a dependency (the extension's SqliteGraphStore is prior art), pure WASM, no native
- * build. One database per repo, under `~/.codegraph/index/<repo-hash>/semantic.db`, so
+ * build. One database per repo, under `~/.graphweft/index/<repo-hash>/semantic.db`, so
  * embeddings survive across CLI invocations and MCP restarts: only changed chunks are ever
  * re-embedded.
  *
@@ -39,9 +39,9 @@ export interface VectorStoreStats {
   dims: number;
 }
 
-/** Root of CodeGraph's per-repo caches. Env override: CODEGRAPH_CACHE_DIR. */
+/** Root of Graphweft's per-repo caches. Env override: GRAPHWEFT_CACHE_DIR. */
 export function cacheRootDir(): string {
-  return process.env.CODEGRAPH_CACHE_DIR ?? path.join(os.homedir(), '.codegraph', 'index');
+  return process.env.GRAPHWEFT_CACHE_DIR ?? path.join(os.homedir(), '.graphweft', 'index');
 }
 
 /** Stable per-repo cache directory derived from the repo's absolute path. */

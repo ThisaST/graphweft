@@ -1,7 +1,7 @@
-# Publishing CodeGraph to the VS Code Marketplace
+# Publishing Graphweft to the VS Code Marketplace
 
 This guide takes you from a clean checkout to a published extension. It also
-covers the two CodeGraph-specific gotchas (pnpm symlinks and the runtime
+covers the two Graphweft-specific gotchas (pnpm symlinks and the runtime
 `node_modules` assets) that will otherwise produce a broken `.vsix`.
 
 > **TL;DR**
@@ -9,7 +9,7 @@ covers the two CodeGraph-specific gotchas (pnpm symlinks and the runtime
 > npm i -g @vscode/vsce          # one-time
 > npm install                    # flat node_modules — see "pnpm gotcha"
 > npm run compile && npm test    # green build
-> vsce package                   # → codegraph-copilot-chat-0.1.0.vsix
+> vsce package                   # → graphweft-copilot-chat-0.1.0.vsix
 > # install the .vsix locally and smoke-test it, THEN:
 > vsce login <your-publisher-id>
 > vsce publish
@@ -55,8 +55,8 @@ The repo currently ships with placeholders that **must** be replaced before you 
 ```jsonc
 // package.json
 "publisher": "local-first",                                   // ← your publisher ID
-"repository": { "url": "https://github.com/your-org/codegraph-copilot-chat.git" }, // ← your repo
-"bugs": { "url": "https://github.com/your-org/codegraph-copilot-chat/issues" }     // ← your repo
+"repository": { "url": "https://github.com/your-org/graphweft-copilot-chat.git" }, // ← your repo
+"bugs": { "url": "https://github.com/your-org/graphweft-copilot-chat/issues" }     // ← your repo
 ```
 
 Change `publisher` to the exact ID you created in step 2 — the Marketplace
@@ -104,7 +104,7 @@ at runtime.
 `vsce` includes everything **except** what `.vscodeignore` lists, and it
 automatically prunes `devDependencies` while keeping production `dependencies`.
 
-CodeGraph loads two things from `node_modules` **at runtime**, so they must end
+Graphweft loads two things from `node_modules` **at runtime**, so they must end
 up in the package:
 
 | Asset | Loaded by | Loaded how |
@@ -142,25 +142,25 @@ vsce ls | grep -E "huggingface|onnxruntime|sharp" && echo "LEAK — fix .vscodei
 ```bash
 npm run compile      # tsc -p .  → out/
 npm test             # the four Node test suites should all print "passed"
-vsce package         # → codegraph-copilot-chat-0.1.0.vsix
+vsce package         # → graphweft-copilot-chat-0.1.0.vsix
 ```
 
 Install the VSIX into a clean VS Code and exercise the real features — this
 catches packaging bugs the unit tests can't:
 
 ```bash
-code --install-extension codegraph-copilot-chat-0.1.0.vsix
+code --install-extension graphweft-copilot-chat-0.1.0.vsix
 ```
 
 Then in that window confirm:
 
-1. **`@codegraph /help`** lists the slash commands (participant + icon loaded).
-2. **`@codegraph /viz`** opens the graph — proves Cytoscape shipped.
-3. **`CodeGraph: Build Local Index`** completes — proves the sql.js WASM shipped.
-4. The **CodeGraph sidebar** and **Privacy Center** open without errors.
+1. **`@graphweft /help`** lists the slash commands (participant + icon loaded).
+2. **`@graphweft /viz`** opens the graph — proves Cytoscape shipped.
+3. **`Graphweft: Build Local Index`** completes — proves the sql.js WASM shipped.
+4. The **Graphweft sidebar** and **Privacy Center** open without errors.
 
 Uninstall the test copy when done:
-`code --uninstall-extension <publisher>.codegraph-copilot-chat`.
+`code --uninstall-extension <publisher>.graphweft-copilot-chat`.
 
 ---
 
@@ -176,11 +176,11 @@ go: `vsce publish patch` (also `minor` / `major`), which edits `package.json`,
 tags, and uploads.
 
 The extension appears at
-`https://marketplace.visualstudio.com/items?itemName=<publisher>.codegraph-copilot-chat`
+`https://marketplace.visualstudio.com/items?itemName=<publisher>.graphweft-copilot-chat`
 within a minute or two. Users install with:
 
 ```bash
-code --install-extension <publisher>.codegraph-copilot-chat
+code --install-extension <publisher>.graphweft-copilot-chat
 ```
 
 ---
@@ -198,7 +198,7 @@ code --install-extension <publisher>.codegraph-copilot-chat
 - **Open VSX** (for VSCodium / Cursor / Gitpod / Theia users): publish the same
   VSIX with [`ovsx`](https://github.com/eclipse/openvsx): `npx ovsx publish *.vsix -p <openvsx-token>`.
 - **Private distribution (no Marketplace):** just hand teammates the `.vsix`
-  and have them run `code --install-extension <file>.vsix`. Given CodeGraph's
+  and have them run `code --install-extension <file>.vsix`. Given Graphweft's
   local-first/privacy framing, this is a perfectly good way to roll it out
   internally without ever listing it publicly.
 - **CI publishing:** store the PAT as a secret and run `vsce publish -p $VSCE_PAT`

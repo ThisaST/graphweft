@@ -2,7 +2,7 @@
  * Bundled local embedding provider — runs an ONNX embedding model **in-process** via
  * `@huggingface/transformers` (transformers.js). No external server: the CLI/MCP host embeds
  * on its own. The model is NOT shipped with the package; it is downloaded once from the
- * Hugging Face Hub into a local cache dir (default `~/.codegraph/models`) and reused offline
+ * Hugging Face Hub into a local cache dir (default `~/.graphweft/models`) and reused offline
  * after that. That one-time download is the only network access this provider ever performs —
  * code and queries never leave the machine.
  *
@@ -23,20 +23,20 @@ export const DEFAULT_LOCAL_MODEL = 'jinaai/jina-embeddings-v2-base-code';
 export const FAST_LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
 
 export interface LocalEmbeddingConfig {
-  /** HF Hub model id. Env override: CODEGRAPH_EMBED_MODEL. */
+  /** HF Hub model id. Env override: GRAPHWEFT_EMBED_MODEL. */
   model?: string;
-  /** Where model weights are cached. Env override: CODEGRAPH_MODEL_CACHE. */
+  /** Where model weights are cached. Env override: GRAPHWEFT_MODEL_CACHE. */
   cacheDir?: string;
   /** Called once when a model download starts (first run UX). */
   onDownload?: (model: string, cacheDir: string) => void;
 }
 
 export function defaultModelCacheDir(): string {
-  return process.env.CODEGRAPH_MODEL_CACHE ?? path.join(os.homedir(), '.codegraph', 'models');
+  return process.env.GRAPHWEFT_MODEL_CACHE ?? path.join(os.homedir(), '.graphweft', 'models');
 }
 
 export function resolveLocalModel(model?: string): string {
-  return model ?? process.env.CODEGRAPH_EMBED_MODEL ?? DEFAULT_LOCAL_MODEL;
+  return model ?? process.env.GRAPHWEFT_EMBED_MODEL ?? DEFAULT_LOCAL_MODEL;
 }
 
 /** Minimal surface of transformers.js we rely on — injectable for tests. */
