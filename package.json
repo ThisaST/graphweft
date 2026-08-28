@@ -1,19 +1,28 @@
 {
   "name": "graphweft",
   "displayName": "Graphweft",
-  "description": "Local-first code graph for chat: a privacy-audited @graphweft chat participant, interactive graph viewer, multi-language indexing, and slash commands for path/impact/report. Works with GitHub Copilot Chat.",
-  "version": "0.8.0",
+  "description": "Local-first code graph: index a repo into an import/symbol graph and retrieve the relevant slice instead of whole files. Ships as a CLI, an MCP server for AI agents, a TypeScript API, and a VS Code chat participant.",
+  "version": "0.8.3",
   "publisher": "ThisaraPramu",
   "icon": "media/icon.png",
   "license": "MIT",
   "keywords": [
-    "graphweft",
     "code graph",
-    "copilot chat",
+    "mcp",
+    "mcp-server",
+    "model context protocol",
+    "ai agents",
+    "code search",
+    "semantic code search",
+    "embeddings",
+    "retrieval",
+    "rag",
+    "dependency graph",
+    "impact analysis",
+    "tree-sitter",
     "local-first",
-    "privacy",
     "token savings",
-    "dependency graph"
+    "copilot chat"
   ],
   "galleryBanner": {
     "color": "#0d1117",
@@ -24,12 +33,28 @@
     "node": ">=18"
   },
   "files": [
-    "out",
-    "media/icon.png",
+    "out/index.js",
+    "out/index.d.ts",
+    "out/compressor/",
+    "out/graph/",
+    "out/indexer/",
+    "out/mcp/",
+    "out/node/",
+    "out/report/",
+    "out/semantic/",
+    "out/utils/",
+    "!out/**/*.map",
+    "!out/**/*.test.*",
+    "!out/graph/sqliteGraphStore.*",
+    "!out/indexer/fileWatcher.*",
+    "!out/indexer/workspaceIndexer.*",
+    "!out/indexer/workspaceScanner.*",
+    "!out/semantic/semanticIndexer.*",
     "README.md",
     "COMMANDS.md",
     "INTEGRATIONS.md",
     "ALGORITHMS.md",
+    "BENCHMARKS.md",
     "LICENSE"
   ],
   "categories": [
@@ -526,16 +551,20 @@
     }
   },
   "bin": {
-    "graphweft": "out/node/cli.js"
+    "graphweft": "out/node/cli.js",
+    "graphweft-mcp": "out/mcp/server.js"
   },
   "scripts": {
-    "compile": "tsc -p .",
+    "compile": "npm run clean && tsc -p .",
     "prepublishOnly": "npm run compile",
     "cli": "node out/node/cli.js",
     "mcp": "node out/mcp/server.js",
     "test": "pnpm run compile && node out/test/retrieval.test.js && node out/test/graphAlgorithms.test.js && node out/test/sqliteStore.test.js && node out/test/chatContext.test.js && node out/test/tokenSavings.test.js && node out/test/complexity.test.js && node out/test/multiLangGraph.test.js && node out/test/modelRecommender.test.js && node out/test/fileFilters.test.js && node out/test/semantic.test.js && node out/test/codeChunker.test.js && node out/test/semanticLocal.test.js && node out/test/semanticEngine.test.js && node out/test/textReplace.test.js && node out/test/nodeEngine.test.js && node out/test/mcpServer.test.js && node out/test/mcpClients.test.js && node out/test/treeSitter.test.js",
     "watch": "tsc -watch -p .",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "clean": "node scripts/clean.js",
+    "prepack": "node scripts/npm-manifest.js pack",
+    "postpack": "node scripts/npm-manifest.js restore"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -559,5 +588,21 @@
       "@vscode/vsce-sign",
       "keytar"
     ]
-  }
+  },
+  "types": "./out/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./out/index.d.ts",
+      "default": "./out/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThisaST/graphweft.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ThisaST/graphweft/issues"
+  },
+  "homepage": "https://github.com/ThisaST/graphweft#readme"
 }

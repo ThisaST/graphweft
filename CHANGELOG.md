@@ -4,6 +4,72 @@ All notable changes to **Graphweft** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] — 2026-08-28
+
+### Fixed
+- **The npm `description` and `keywords` fix in 0.8.2 never reached the registry.** npm
+  captures registry metadata from `package.json` *before* running `prepack`, so the
+  pack-time swap changed the tarball but not the npm page, which kept advertising a
+  "@graphweft chat participant … Works with GitHub Copilot Chat". Both fields are now
+  worded in the committed manifest to serve npm and the Marketplace, and
+  `scripts/npm-manifest.js` no longer pretends to swap them. `main` stays swapped: Node
+  reads that from the tarball, where the swap does apply.
+
+## [0.8.2] — 2026-08-28
+
+### Fixed
+- **The MCP server indexed non-TypeScript files at reduced fidelity.** It never preloaded
+  tree-sitter grammars, so `extractTreeSitterSymbols` returned `undefined` and every
+  Python/Go/Rust/Java/C#/Ruby/PHP/C++/Bash file silently fell back to regex extraction —
+  losing nested symbols (methods inside a class, functions in a Rust `impl`). Measured at a
+  31% symbol loss on a mixed-language fixture. Agents using MCP, the primary consumer, were
+  the ones affected. The three copies of this preload logic are now one exported
+  `preloadGrammarsForPaths` used by the engine, the workspace indexer, and the MCP server.
+- **npm-facing `description` and `keywords` still described the VS Code extension**
+  ("@graphweft chat participant… Works with GitHub Copilot Chat"), which is what npm shows
+  in search results and under the package name.
+- **`main` pointed at `out/extension.js`, which is not published to npm.** Resolving the
+  package by path (rather than by name, where `exports` applies) failed with
+  `Please verify that the package.json has a valid "main" entry`.
+- **The CLI exited 0 on bad input**, so mistyped paths passed silently in scripts and CI.
+  `index`/`search`/`embed`/`semantic`/`impact`/`path`/`report` now verify the target is a
+  readable directory, and `impact`/`path` fail when a file is not in the index instead of
+  returning an empty result indistinguishable from "nothing depends on this".
+- **`--model` was undocumented on `search` and `semantic`** (it was always parsed and applied),
+  making `embed --model X` followed by a bare `semantic` look broken. Documented in usage and
+  the readme, with a pointer to `GRAPHWEFT_EMBED_MODEL`.
+- The `embed` progress message hard-coded `~/.graphweft/models`; it now reports the cache
+  directory actually in use (honouring `GRAPHWEFT_MODEL_CACHE`).
+
+### Changed
+- `scripts/swap-readme.js` became `scripts/npm-manifest.js` and now swaps the npm-only
+  `main`, `description`, and `keywords` alongside the readme during `prepack`/`postpack`.
+  vsce never runs those hooks, so the Marketplace build keeps its own values.
+
+## [0.8.1] — 2026-08-28
+
+### Added
+- **npm distribution.** The headless engine now publishes to npm as `graphweft`. A
+  Node-safe entry point (`src/index.ts`) exports the engine, graph algorithms, retriever,
+  indexers, report builders and MCP server; `main` stays the VS Code extension while
+  Node resolves the package through `exports`, so both distributions work from one manifest.
+- **`graphweft-mcp` binary** — the MCP stdio server is now directly invokable, so client
+  config is `"command": "graphweft-mcp"` instead of a hard-coded path into `out/`.
+- **npm-specific README** (`npm-readme.md`), swapped in by `prepack`/`postpack` via
+  `scripts/swap-readme.js` so the npm page documents the CLI/MCP/API rather than the
+  VS Code chat participant, while the Marketplace page keeps its own README.
+
+### Fixed
+- **`pnpm-workspace.yaml` was missing the `packages:` field**, which made every pnpm
+  command fail — including `pnpm install`, `pnpm run compile` and `pnpm test`.
+- **Stale build artifacts were being published.** `out/` was never cleaned, so pre-rename
+  modules (`codegraphParticipant`, `codegraphEngine`, `codeGraphTreeProvider`) shipped in
+  the package. `compile` now runs `scripts/clean.js` first.
+- **The MCP server reported a hard-coded version `0.7.0`.** It now reads the version from
+  the manifest, so it can no longer drift.
+- Narrowed the published `files` list to the vscode-free closure: no tests, no source maps,
+  and no VS Code-only modules. Tarball dropped from 311 kB / 195 files to 86 kB / 65 files.
+
 ## [0.8.0] — 2026-08-13
 
 ### Added

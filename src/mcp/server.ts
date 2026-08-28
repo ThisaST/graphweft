@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Graphweft MCP server — exposes the code graph to any Model Context Protocol client
  * (Copilot agent mode, Claude Desktop/Code, Cursor, …) over stdio, so agents outside
@@ -20,13 +21,24 @@ import { GraphweftFile } from '../graph/graphTypes';
 import { InMemoryGraphStore } from '../graph/inMemoryGraphStore';
 import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
+import { preloadGrammarsForPaths } from '../indexer/treeSitterIndexer';
 import { WorkspaceSourceFile } from '../indexer/sourceFile';
 import { HeadlessSemanticIndex, toFileMatches } from '../semantic/headlessSemanticIndex';
 import { isSupportedSourcePath } from '../utils/fileFilters';
 import { readSourceFile, scanDirectory, toRelativePath } from '../node/nodeScanner';
 
 const protocolVersions = new Set(['2024-11-05', '2025-03-26', '2025-06-18']);
-const serverInfo = { name: 'graphweft-mcp', version: '0.7.0' };
+// Read the version from the manifest rather than hard-coding it, so the version reported
+// over MCP can never drift from the published package version.
+const serverInfo = { name: 'graphweft-mcp', version: packageVersion() };
+
+function packageVersion(): string {
+  try {
+    return (require('../../package.json') as { version: string }).version;
+  } catch {
+    return '0.0.0';
+  }
+}
 
 // ---------------------------------------------------------------------------------------
 // Headless engine: full scan once, then fs.watch-driven incremental refresh on demand.
@@ -65,6 +77,9 @@ class HeadlessGraphweft {
   public async ensureFresh(): Promise<void> {
     if (!this.built) {
       const sources = await scanDirectory(this.root);
+      // Grammars must be loaded before indexGenericFile runs, or every non-TypeScript file
+      // silently falls back to regex extraction and loses nested symbols.
+      await preloadGrammarsForPaths(sources.map((file) => file.workspaceRelativePath));
       await this.store.replace(sources.map(indexSource));
       this.built = true;
       this.dirty.clear();
@@ -82,6 +97,7 @@ class HeadlessGraphweft {
       if (file) updated.push(file);
       else removed.push(toRelativePath(this.root, absolute));
     }
+    await preloadGrammarsForPaths(updated.map((file) => file.workspaceRelativePath));
     await this.store.upsert(updated.map(indexSource), removed);
     await this.refreshSemantic();
   }

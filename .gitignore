@@ -1,5 +1,13 @@
 node_modules/
 out/
 *.vsix
+*.tgz
 .DS_Store
 bench-results.json
+
+# Local, untracked npm auth config for public npmjs publish (never commit tokens)
+.npmrc.publish
+
+# Transient backup created while packing the npm-specific readme
+.README.original.bak
+.package.json.original.bak

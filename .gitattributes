@@ -1,0 +1,15 @@
+# Normalise line endings: the repo stores LF, checkouts get LF on every platform.
+# Without this, editors on Windows rewrite whole files to CRLF and every file shows up
+# as modified with no real change — and a CRLF shebang breaks the CLI on Unix.
+* text=auto eol=lf
+
+# Binary assets: never touch these.
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.ico   binary
+*.wasm  binary
+*.vsix  binary
+*.tgz   binary
+*.woff  binary
+*.woff2 binary

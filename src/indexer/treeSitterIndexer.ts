@@ -291,3 +291,24 @@ function isExported(node: SyntaxNode, ext: string): boolean {
   // Other languages: keep parity with the regex indexer (everything visible).
   return true;
 }
+
+/**
+ * Load the tree-sitter grammars needed for the languages present in `paths`.
+ *
+ * `extractTreeSitterSymbols` is synchronous, so a grammar that has not been loaded yet
+ * makes it return `undefined` and the caller silently falls back to regex extraction —
+ * which misses nested symbols (methods inside a Python class, functions in a Rust `impl`).
+ * Every host that indexes a batch of files must call this first. Failures are intentionally
+ * swallowed: the regex fallback still covers those files.
+ */
+export async function preloadGrammarsForPaths(paths: readonly string[]): Promise<void> {
+  const known = new Set(treeSitterExtensions());
+  const wanted = new Set<string>();
+  for (const filePath of paths) {
+    const dot = filePath.lastIndexOf('.');
+    if (dot < 0) continue;
+    const ext = filePath.slice(dot).toLowerCase();
+    if (known.has(ext)) wanted.add(ext);
+  }
+  await Promise.all([...wanted].map((ext) => loadGrammar(ext).catch(() => false)));
+}

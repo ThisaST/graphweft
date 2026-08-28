@@ -12,7 +12,7 @@ import { GraphweftFile } from '../graph/graphTypes';
 import { buildGraphReport, renderGraphReportMarkdown } from '../report/graphReport';
 import { indexGenericFile } from '../indexer/genericIndexer';
 import { indexTypeScriptFile } from '../indexer/typescriptAstIndexer';
-import { loadGrammar, treeSitterExtensions } from '../indexer/treeSitterIndexer';
+import { preloadGrammarsForPaths } from '../indexer/treeSitterIndexer';
 import { HeadlessSemanticIndex, SemanticBuildStats, toFileMatches } from '../semantic/headlessSemanticIndex';
 import { EmbeddingChainConfig } from '../semantic/providerChain';
 import { ChunkMatch } from '../semantic/sqliteVectorStore';
@@ -71,7 +71,7 @@ export class GraphweftEngine {
   public async indexDirectory(root: string, options?: ScanOptions): Promise<IndexSummary> {
     this.root = root;
     const sources = await scanDirectory(root, options);
-    await preloadGrammarsFor(sources.map((file) => file.workspaceRelativePath));
+    await preloadGrammarsForPaths(sources.map((file) => file.workspaceRelativePath));
     const files = sources.map((file) => (file.isTypescript ? indexTypeScriptFile(file) : indexGenericFile(file)));
     await this.store.replace(files);
     return {
@@ -242,15 +242,3 @@ async function readFileText(file: GraphweftFile): Promise<string | undefined> {
   }
 }
 
-/** Best-effort tree-sitter grammar preload for the languages present in `paths`. */
-async function preloadGrammarsFor(paths: string[]): Promise<void> {
-  const known = new Set(treeSitterExtensions());
-  const wanted = new Set<string>();
-  for (const filePath of paths) {
-    const dot = filePath.lastIndexOf('.');
-    if (dot < 0) continue;
-    const ext = filePath.slice(dot).toLowerCase();
-    if (known.has(ext)) wanted.add(ext);
-  }
-  await Promise.all([...wanted].map((ext) => loadGrammar(ext).catch(() => false)));
-}

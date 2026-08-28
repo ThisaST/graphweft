@@ -10,7 +10,7 @@
  *                                            exists (opt out with --no-semantic)
  *   graphweft embed    [dir]                 build/refresh the local embedding index
  *                                            (--model <hf-id>, --wipe; first run downloads the
- *                                            model to ~/.graphweft/models — fully local after)
+ *                                            model to the local cache — fully local after)
  *   graphweft semantic [dir] <query...>      chunk-level semantic code search (JSON)
  *   graphweft impact   [dir] <file>          files that transitively depend on <file>
  *   graphweft path     [dir] <fileA> <fileB> shortest dependency path
@@ -18,8 +18,9 @@
  *
  * `dir` defaults to the current directory.
  */
+import * as fs from 'fs/promises';
 import { GraphweftEngine } from './graphweftEngine';
-import { resolveLocalModel } from '../semantic/localEmbeddingProvider';
+import { defaultModelCacheDir, resolveLocalModel } from '../semantic/localEmbeddingProvider';
 
 async function main(argv: string[]): Promise<number> {
   const { flags, positional } = parseFlags(argv);
@@ -37,6 +38,8 @@ async function main(argv: string[]): Promise<number> {
   switch (command) {
     case 'index': {
       const dir = rest[0] ?? '.';
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       const summary = await engine.indexDirectory(dir);
       process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
       return 0;
@@ -44,6 +47,8 @@ async function main(argv: string[]): Promise<number> {
     case 'search': {
       const { dir, args } = splitDirAndArgs(rest);
       if (args.length === 0) return fail('search needs a query: graphweft search [dir] <query...>');
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
       const result = flags.has('no-semantic')
         ? engine.search(args.join(' '))
@@ -53,6 +58,8 @@ async function main(argv: string[]): Promise<number> {
     }
     case 'embed': {
       const dir = rest[0] ?? '.';
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
       if (flags.has('wipe')) {
         await engine.wipeSemanticIndex();
@@ -61,7 +68,7 @@ async function main(argv: string[]): Promise<number> {
       }
       process.stderr.write(
         `Embedding with "${resolveLocalModel(flags.get('model'))}" — first run downloads the model ` +
-          'to ~/.graphweft/models (local-only afterwards)…\n',
+          `to ${defaultModelCacheDir()} (local-only afterwards)…\n`,
       );
       let lastReported = 0;
       const stats = await engine.buildSemanticIndex((embedded, total) => {
@@ -76,6 +83,8 @@ async function main(argv: string[]): Promise<number> {
     case 'semantic': {
       const { dir, args } = splitDirAndArgs(rest);
       if (args.length === 0) return fail('semantic needs a query: graphweft semantic [dir] <query...>');
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
       const hits = await engine.semanticSearch(args.join(' '), { topK: flagInt(flags, 'top', 12) });
       process.stdout.write(`${JSON.stringify({ query: args.join(' '), hits }, null, 2)}\n`);
@@ -84,20 +93,32 @@ async function main(argv: string[]): Promise<number> {
     case 'impact': {
       const { dir, args } = splitDirAndArgs(rest);
       if (args.length === 0) return fail('impact needs a file: graphweft impact [dir] <file>');
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
-      const impacted = engine.impact(args[0]);
-      process.stdout.write(`${JSON.stringify({ seed: args[0], impacted }, null, 2)}\n`);
+      const seed = engine.matchPath(args[0]);
+      // Without this the command prints an empty list for a typo'd path, which is
+      // indistinguishable from "nothing imports this file".
+      if (!seed) return fail(`"${args[0]}" is not in the index for ${dir}`);
+      const impacted = engine.impact(seed);
+      process.stdout.write(`${JSON.stringify({ seed, impacted }, null, 2)}\n`);
       return 0;
     }
     case 'path': {
       const { dir, args } = splitDirAndArgs(rest);
       if (args.length < 2) return fail('path needs two files: graphweft path [dir] <a> <b>');
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
+      const unknown = [args[0], args[1]].filter((candidate) => !engine.matchPath(candidate));
+      if (unknown.length > 0) return fail(`not in the index for ${dir}: ${unknown.join(', ')}`);
       process.stdout.write(`${JSON.stringify(engine.path(args[0], args[1]), null, 2)}\n`);
       return 0;
     }
     case 'report': {
       const dir = rest[0] ?? '.';
+      const dirError = await checkDirectory(dir);
+      if (dirError) return fail(dirError);
       await engine.indexDirectory(dir);
       process.stdout.write(`${engine.report()}\n`);
       return 0;
@@ -145,6 +166,21 @@ function splitDirAndArgs(rest: string[]): { dir: string; args: string[] } {
   return { dir: '.', args: rest };
 }
 
+/**
+ * Verify the target is a readable directory. Without this the scanner just yields no files
+ * and every command reports an empty-but-successful result for a mistyped path — which
+ * silently passes in scripts and CI.
+ */
+async function checkDirectory(dir: string): Promise<string | undefined> {
+  try {
+    const stat = await fs.stat(dir);
+    if (!stat.isDirectory()) return `"${dir}" is not a directory`;
+    return undefined;
+  } catch {
+    return `directory not found: "${dir}"`;
+  }
+}
+
 function fail(message: string): number {
   process.stderr.write(`graphweft: ${message}\n`);
   printUsage();
@@ -156,12 +192,16 @@ function printUsage(): void {
     [
       'Usage:',
       '  graphweft index    [dir]',
-      '  graphweft search   [dir] <query...>   [--no-semantic]',
+      '  graphweft search   [dir] <query...>   [--no-semantic] [--model <hf-id>]',
       '  graphweft embed    [dir]              [--model <hf-id>] [--wipe]',
-      '  graphweft semantic [dir] <query...>   [--top <n>]',
+      '  graphweft semantic [dir] <query...>   [--top <n>] [--model <hf-id>]',
       '  graphweft impact   [dir] <file>',
       '  graphweft path     [dir] <fileA> <fileB>',
       '  graphweft report   [dir]',
+      '',
+      'Notes:',
+      '  --model must match the model the index was built with. Set GRAPHWEFT_EMBED_MODEL',
+      '  to apply one model to every command instead of passing --model each time.',
       '',
     ].join('\n'),
   );

@@ -4,7 +4,7 @@ import { GraphStore } from '../graph/graphStore';
 import { isSupportedSourceUri, isTypescriptSourcePath } from '../utils/fileFilters';
 import { indexGenericFile } from './genericIndexer';
 import { indexTypeScriptFile } from './typescriptAstIndexer';
-import { loadGrammar, treeSitterExtensions } from './treeSitterIndexer';
+import { preloadGrammarsForPaths } from './treeSitterIndexer';
 import { WorkspaceSourceFile } from './sourceFile';
 import { scanWorkspaceSources } from './workspaceScanner';
 
@@ -32,22 +32,6 @@ function indexSource(file: WorkspaceSourceFile) {
   return indexed;
 }
 
-/**
- * Preload tree-sitter grammars for the languages present in the given paths so
- * `indexGenericFile` can use AST extraction synchronously. Failures are silent —
- * the regex fallback covers those files.
- */
-async function preloadGrammars(paths: string[]): Promise<void> {
-  const known = new Set(treeSitterExtensions());
-  const wanted = new Set<string>();
-  for (const filePath of paths) {
-    const dot = filePath.lastIndexOf('.');
-    if (dot < 0) continue;
-    const ext = filePath.slice(dot).toLowerCase();
-    if (known.has(ext)) wanted.add(ext);
-  }
-  await Promise.all([...wanted].map((ext) => loadGrammar(ext).catch(() => false)));
-}
 
 /**
  * Builds and maintains the graph index. Full rebuilds happen once (or on demand); after
@@ -79,7 +63,7 @@ export class WorkspaceIndexer {
       this.pendingDeleted.clear();
 
       const sourceFiles = await scanWorkspaceSources();
-      await preloadGrammars(sourceFiles.map((file) => file.workspaceRelativePath));
+      await preloadGrammarsForPaths(sourceFiles.map((file) => file.workspaceRelativePath));
       const indexedFiles = sourceFiles.map(indexSource);
       await this.store.replace(indexedFiles);
 
@@ -185,7 +169,7 @@ export class WorkspaceIndexer {
       if (file.contentHash) existingHashes.set(file.path, file.contentHash);
     }
 
-    await preloadGrammars(changed.map((uri) => vscode.workspace.asRelativePath(uri, false)));
+    await preloadGrammarsForPaths(changed.map((uri) => vscode.workspace.asRelativePath(uri, false)));
 
     const updatedFiles = [];
     for (const uri of changed) {
