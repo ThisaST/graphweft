@@ -7,7 +7,7 @@ import {
   RetrievalResult,
 } from './graphTypes';
 import { applyContextualFileBoosts, createHintMatches, GraphRetrievalHints, reciprocalRankFusion } from './graphRanker';
-import { buildFileGraph, personalizedPageRank } from './graphAlgorithms';
+import { buildFileGraph, personalizedPageRank, FileGraph } from './graphAlgorithms';
 import { GraphStore } from './graphStore';
 
 const maxFiles = 16;
@@ -31,8 +31,14 @@ export class GraphRetriever {
   public retrieve(task: string, tokenBudget = defaultTokenBudget, hints: GraphRetrievalHints = {}): RetrievalResult {
     const query = buildQueryModel(task);
     const files = this.store.getFiles();
-    const importGraph = buildImportGraph(files);
-    const rankedFiles = rankFiles(files, query, importGraph, hints);
+    // One shared graph for both import lookups and the PageRank signal: the resolver in
+    // graphAlgorithms understands every language's import style (relative paths, namespaces,
+    // and package-as-directory imports like Go module paths), which the retriever's own
+    // resolver did not — it saw relative TS/JS imports only, so on a Go or Java repo the
+    // one-hop expansion, the import boosts and dependencyFlow were all silently empty.
+    const fileGraph = buildFileGraph(files);
+    const importGraph = buildImportGraph(files, fileGraph);
+    const rankedFiles = rankFiles(files, query, importGraph, hints, fileGraph);
     const rankedSymbols = rankSymbols(files, query, rankedFiles);
     const expandedFiles = expandOneHop(rankedFiles, importGraph);
     const selectedFiles = expandedFiles.slice(0, maxFiles);
@@ -48,12 +54,18 @@ export class GraphRetriever {
   }
 }
 
-function rankFiles(files: GraphweftFile[], query: QueryModel, importGraph: ImportGraph, hints: GraphRetrievalHints): RankedFileResult[] {
+function rankFiles(
+  files: GraphweftFile[],
+  query: QueryModel,
+  importGraph: ImportGraph,
+  hints: GraphRetrievalHints,
+  fileGraph: FileGraph,
+): RankedFileResult[] {
   const baseResults = files.map((file) => scoreFile(file, query));
   const hintMatches = createHintMatches(files, hints);
   const mergedResults = mergeRankedFiles([...baseResults, ...hintMatches]);
   const matchedPaths = new Set(mergedResults.filter((result) => result.score > 0).map((result) => result.file.path));
-  const fusedSignal = fuseGraphSignals(files, mergedResults, hints);
+  const fusedSignal = fuseGraphSignals(mergedResults, hints, fileGraph);
 
   return applyContextualFileBoosts(
     mergedResults
@@ -73,9 +85,9 @@ function rankFiles(files: GraphweftFile[], query: QueryModel, importGraph: Impor
  * hand-tuned scale factors. The fused value is normalized to [0, 1].
  */
 function fuseGraphSignals(
-  files: GraphweftFile[],
   mergedResults: RankedFileResult[],
   hints: GraphRetrievalHints,
+  fileGraph: FileGraph,
 ): Map<string, number> {
   const keywordRanking = mergedResults
     .filter((result) => result.score > 0)
@@ -87,7 +99,7 @@ function fuseGraphSignals(
     .sort((a, b) => b.similarity - a.similarity || a.path.localeCompare(b.path))
     .map((match) => match.path);
 
-  const centrality = taskCentrality(files, mergedResults, hints);
+  const centrality = taskCentrality(mergedResults, hints, fileGraph);
   const centralityRanking = Array.from(centrality.entries())
     .filter(([, value]) => value >= 0.05)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -112,9 +124,9 @@ function fuseGraphSignals(
  * Scores are normalized to [0, 1] relative to the best-ranked file.
  */
 function taskCentrality(
-  files: GraphweftFile[],
   mergedResults: RankedFileResult[],
   hints: GraphRetrievalHints,
+  fileGraph: FileGraph,
 ): Map<string, number> {
   const seeds = new Map<string, number>();
   for (const result of mergedResults) {
@@ -125,7 +137,7 @@ function taskCentrality(
   for (const p of hints.changedFilePaths ?? []) seeds.set(p, (seeds.get(p) ?? 0) + 20);
   if (seeds.size === 0) return new Map();
 
-  const ranks = personalizedPageRank(buildFileGraph(files), seeds);
+  const ranks = personalizedPageRank(fileGraph, seeds);
   let max = 0;
   for (const value of ranks.values()) max = Math.max(max, value);
   if (max === 0) return new Map();
@@ -369,57 +381,26 @@ function findRelatedTests(query: QueryModel, selectedFiles: GraphweftFile[], all
   return related.map((file) => file.path).sort();
 }
 
-function buildImportGraph(files: GraphweftFile[]): ImportGraph {
+function buildImportGraph(files: GraphweftFile[], fileGraph: FileGraph): ImportGraph {
   const byPath = new Map(files.map((file) => [file.path, file]));
   const importsByPath = new Map<string, GraphweftFile[]>();
   const importersByPath = new Map<string, GraphweftFile[]>();
 
-  for (const file of files) {
-    const importedFiles = resolveImports(file, byPath);
-    importsByPath.set(file.path, importedFiles);
-
-    for (const importedFile of importedFiles) {
-      const importers = importersByPath.get(importedFile.path) ?? [];
-      importers.push(file);
-      importersByPath.set(importedFile.path, importers);
+  const project = (paths: Iterable<string>): GraphweftFile[] => {
+    const resolved: GraphweftFile[] = [];
+    for (const target of paths) {
+      const file = byPath.get(target);
+      if (file) resolved.push(file);
     }
-  }
-
-  return {
-    importsByPath,
-    importersByPath,
+    return resolved;
   };
+
+  for (const [filePath, targets] of fileGraph.adjacency) importsByPath.set(filePath, project(targets));
+  for (const [filePath, sources] of fileGraph.reverseAdjacency) importersByPath.set(filePath, project(sources));
+
+  return { importsByPath, importersByPath };
 }
 
-function resolveImports(file: GraphweftFile, byPath: Map<string, GraphweftFile>): GraphweftFile[] {
-  const resolved: GraphweftFile[] = [];
-
-  for (const importRef of file.imports) {
-    if (!importRef.specifier.startsWith('.')) {
-      continue;
-    }
-
-    const importBase = path.posix.normalize(path.posix.join(path.posix.dirname(file.path), importRef.specifier));
-    const candidates = [
-      importBase,
-      `${importBase}.ts`,
-      `${importBase}.tsx`,
-      `${importBase}.js`,
-      `${importBase}.jsx`,
-      path.posix.join(importBase, 'index.ts'),
-      path.posix.join(importBase, 'index.tsx'),
-      path.posix.join(importBase, 'index.js'),
-      path.posix.join(importBase, 'index.jsx'),
-    ];
-
-    const match = candidates.map((candidate) => byPath.get(candidate)).find((candidate): candidate is GraphweftFile => Boolean(candidate));
-    if (match) {
-      resolved.push(match);
-    }
-  }
-
-  return resolved;
-}
 
 function isTestFile(filePath: string): boolean {
   return (

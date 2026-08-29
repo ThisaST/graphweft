@@ -115,7 +115,40 @@ async function runTests(): Promise<void> {
   assert.ok(tinyMarkdown.length < generousMarkdown.length, 'small budget should omit lower-ranked context');
 }
 
+/**
+ * The retriever used to carry its own import resolver that understood relative TS/JS
+ * specifiers only, so on a Go/Java-style repo the one-hop expansion, the import boosts and
+ * dependencyFlow were all silently empty. It now shares the multi-language resolver.
+ */
+async function resolvesPackageDirectoryImportsInRetrieval(): Promise<void> {
+  const store = new InMemoryGraphStore();
+  const goFile = (path: string, imports: string[] = []) => ({
+    uri: `file:///test/${path}`,
+    path,
+    imports: imports.map((specifier) => ({ specifier, importedNames: [], isTypeOnly: false, line: 1 })),
+    symbols: [],
+    decorators: [],
+  });
+
+  await store.replace([
+    goFile('internal/telemetry/service.go', ['context', 'github.com/acme/platform/internal/telemetry/emit']),
+    goFile('internal/telemetry/emit/emitter.go'),
+    goFile('internal/telemetry/emit/sink.go'),
+  ]);
+
+  const result = new GraphRetriever(store).retrieve('telemetry emit', 4000);
+  assert.ok(
+    result.dependencyFlow.join(' ').includes('internal/telemetry/service.go -> internal/telemetry/emit/emitter.go'),
+    `expected a Go package edge in dependencyFlow, got: ${JSON.stringify(result.dependencyFlow)}`,
+  );
+  assert.ok(
+    result.files.some((entry) => entry.file.path === 'internal/telemetry/emit/sink.go'),
+    'one-hop expansion should pull in the rest of the imported package',
+  );
+}
+
 runTests()
+  .then(resolvesPackageDirectoryImportsInRetrieval)
   .then(() => console.log('retrieval.test.ts passed'))
   .catch((error: unknown) => {
     console.error(error);

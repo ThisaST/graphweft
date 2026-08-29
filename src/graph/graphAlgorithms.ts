@@ -39,6 +39,11 @@ interface FileIndex {
   byBaseName: Map<string, GraphweftFile[]>;
   /** Directory segment name -> directory prefixes ending in it (workspace-package resolution). */
   byDirName: Map<string, string[]>;
+  /**
+   * Full directory path -> the files directly inside it. Languages whose unit of import is a
+   * *directory* rather than a file (Go packages, Java/Kotlin source dirs) resolve through this.
+   */
+  byDirPath: Map<string, GraphweftFile[]>;
 }
 
 function buildFileIndex(files: GraphweftFile[]): FileIndex {
@@ -46,9 +51,13 @@ function buildFileIndex(files: GraphweftFile[]): FileIndex {
   const byModule = new Map<string, GraphweftFile[]>();
   const byBaseName = new Map<string, GraphweftFile[]>();
   const byDirName = new Map<string, string[]>();
+  const byDirPath = new Map<string, GraphweftFile[]>();
 
   for (const file of files) {
     byPath.set(file.path, file);
+
+    const dir = path.posix.dirname(file.path);
+    if (dir && dir !== '.') push(byDirPath, dir, file);
 
     if (file.moduleName) {
       push(byModule, file.moduleName, file);
@@ -67,7 +76,7 @@ function buildFileIndex(files: GraphweftFile[]): FileIndex {
     }
   }
 
-  return { byPath, byModule, byBaseName, byDirName };
+  return { byPath, byModule, byBaseName, byDirName, byDirPath };
 }
 
 function push<T>(map: Map<string, T[]>, key: string, value: T): void {
@@ -451,6 +460,13 @@ function resolveSpecifier(file: GraphweftFile, rawSpecifier: string, index: File
   const pathTarget = resolvePathLike(specifier, index.byPath);
   if (pathTarget) return [pathTarget];
 
+  // Package-as-directory import (Go module paths, and any language whose import names a
+  // directory rather than a file). Must come before the base-name fallback: that fallback
+  // only fires when a package's final segment happens to match a unique *file* name, which
+  // is an accident rather than a resolution.
+  const directoryTargets = resolveDirectoryPackage(specifier, index.byDirPath);
+  if (directoryTargets.length > 0) return directoryTargets;
+
   // Last-resort: match the final segment against a unique file base name.
   const byBase = resolveByBaseName(specifier, index.byBaseName);
   return byBase ? [byBase] : [];
@@ -542,6 +558,35 @@ function resolvePathLike(specifier: string, byPath: Map<string, GraphweftFile>):
 }
 
 /** Match the final segment of a module path against a uniquely-named file. */
+/**
+ * Resolve an import that names a **directory** to every file in it.
+ *
+ * Go is the motivating case: `github.com/org/repo/internal/billing/api` must resolve to the
+ * directory `internal/billing/api`, because a Go package *is* a directory and the importer
+ * depends on all of its files. The module prefix (`github.com/org/repo`) is not part of the
+ * repository layout, so we drop leading segments one at a time and take the longest suffix
+ * that is a real directory — longest-first, so `internal/billing/api` wins over a bare `api`.
+ *
+ * Single-segment specifiers are ignored outright: those are overwhelmingly standard-library
+ * imports (`context`, `fmt`), and matching them against a same-named directory would invent
+ * edges that do not exist.
+ */
+function resolveDirectoryPackage(
+  specifier: string,
+  byDirPath: Map<string, GraphweftFile[]>,
+): GraphweftFile[] {
+  const normalized = specifier.replace(/\\/gu, '/').replace(/^\/+/u, '').replace(/\/+$/u, '');
+  if (!normalized.includes('/')) return [];
+
+  const segments = normalized.split('/').filter(Boolean);
+  for (let start = 0; start < segments.length; start++) {
+    const candidate = segments.slice(start).join('/');
+    const files = byDirPath.get(candidate);
+    if (files && files.length > 0) return files;
+  }
+  return [];
+}
+
 function resolveByBaseName(specifier: string, byBaseName: Map<string, GraphweftFile[]>): GraphweftFile | undefined {
   const parts = specifier.replace(/^@/u, '').split(/[.\\/:]/u).filter(Boolean);
   const last = parts[parts.length - 1];

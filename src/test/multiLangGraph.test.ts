@@ -166,4 +166,52 @@ function edge(files: GraphweftFile[], from: string, to: string): boolean {
   assert.ok(edge(files, 'pkg/src/ChartCard/index.ts', 'pkg/src/ChartCard/types.ts'), 'type re-export links to types file');
 })();
 
+
+// --- Go module-path imports resolve to the package DIRECTORY ---
+
+(function resolvesGoModulePathToPackageDirectory(): void {
+  const files = [
+    f('internal/publishing/service.go', { imports: ['context', 'github.com/aiwork/platform/internal/publishing/api'] }),
+    f('internal/publishing/api/service.go'),
+    f('internal/publishing/api/types.go'),
+  ];
+  // A Go package is a directory: the importer depends on every file in it.
+  assert.ok(edge(files, 'internal/publishing/service.go', 'internal/publishing/api/service.go'));
+  assert.ok(edge(files, 'internal/publishing/service.go', 'internal/publishing/api/types.go'));
+})();
+
+(function prefersLongestDirectorySuffix(): void {
+  // A bare `api/` directory must not win over the fully-qualified package path.
+  const files = [
+    f('internal/billing/service.go', { imports: ['github.com/aiwork/platform/internal/billing/api'] }),
+    f('internal/billing/api/api.go'),
+    f('api/legacy.go'),
+  ];
+  assert.ok(edge(files, 'internal/billing/service.go', 'internal/billing/api/api.go'));
+  assert.ok(!edge(files, 'internal/billing/service.go', 'api/legacy.go'), 'must not fall back to a shorter suffix');
+})();
+
+(function ignoresSingleSegmentStdlibImports(): void {
+  // `context` is the standard library, not the repo's own context/ directory.
+  const files = [
+    f('internal/run/run.go', { imports: ['context', 'fmt'] }),
+    f('context/helper.go'),
+    f('fmt/printer.go'),
+  ];
+  assert.ok(!edge(files, 'internal/run/run.go', 'context/helper.go'), 'stdlib import must not link');
+  assert.ok(!edge(files, 'internal/run/run.go', 'fmt/printer.go'), 'stdlib import must not link');
+})();
+
+(function directoryResolutionBeatsAccidentalBaseNameMatch(): void {
+  // Before directory resolution existed, this linked only when the final segment happened
+  // to match a unique FILE name — an accident that missed every real package edge.
+  const files = [
+    f('cmd/main.go', { imports: ['github.com/aiwork/platform/internal/telemetry'] }),
+    f('internal/telemetry/emitter.go'),
+    f('internal/telemetry/sink.go'),
+  ];
+  const targets = buildFileGraph(files).adjacency.get('cmd/main.go');
+  assert.strictEqual(targets?.size, 2, 'links to the whole package, not one lucky file');
+})();
+
 console.log('multiLangGraph.test.ts passed');

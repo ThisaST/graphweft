@@ -4,6 +4,33 @@ All notable changes to **Graphweft** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-08-30
+
+### Fixed
+- **Imports that name a package *directory* did not resolve, so the graph was near-empty on
+  Go, and on any language whose unit of import is a directory rather than a file.** On a
+  113-file Go repository the import graph had **5 edges** — and all five were accidents,
+  where an import's final segment happened to match a unique *file* name. `impact`, `path`,
+  `communities` and the personalized-PageRank ranking signal were all effectively inert.
+  `resolveDirectoryPackage` now drops leading segments of a specifier one at a time and
+  links to every file in the longest suffix that is a real directory, so
+  `github.com/org/repo/internal/billing/api` resolves to `internal/billing/api/`. Same repo,
+  after: **147 edges**. Single-segment specifiers are ignored so standard-library imports
+  (`context`, `fmt`) cannot invent edges.
+- **The retriever carried a second, weaker import resolver** that understood relative TS/JS
+  specifiers only. Even with the fix above, one-hop expansion, the importer/imported score
+  boosts and `dependencyFlow` stayed empty on non-TypeScript repositories. It now shares the
+  multi-language resolver in `graphAlgorithms`. Measured over four queries on the same Go
+  repo, `dependencyFlow` went from **0 to 149** edges, surfacing the actual collaborators
+  (the ClickHouse client for a cost-event query, the migration runner for an RLS query).
+  The file graph is now built once per retrieval and reused for both the import lookups and
+  the PageRank signal, rather than built twice.
+
+### Changed
+- Retrieval context on a Go repository got slightly *cheaper* while getting more accurate
+  (16,897 vs 17,047 tokens over a 10-query benchmark), because better ranking spends the
+  same budget on more relevant chunks.
+
 ## [0.8.3] — 2026-08-28
 
 ### Fixed
